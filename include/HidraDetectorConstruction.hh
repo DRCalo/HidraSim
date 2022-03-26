@@ -50,8 +50,8 @@ static constexpr double fiberCladOuterRadius = 0.5 * mm;
 static constexpr double fiberHalfSizeZ = tubeHalfSizeZ;
 
 // Single module dimensions
-static constexpr double moduleHalfSizeX = 2 * tubeOuterRadius * nFibersCols; 
-static constexpr double modulehalfSizeY = tubeOuterRadius * 1.733 * nFibersRows;
+static constexpr double moduleHalfSizeX = tubeOuterRadius * nFibersCols;
+static constexpr double modulehalfSizeY = tubeOuterRadius * 1.733 * nFibersRows / 2;
 static constexpr double modulehalfSizeZ = 1000. * mm;
 
 // Size of full calorimeter
@@ -67,14 +67,14 @@ static constexpr double worldhalfSizeY = 1.5 * caloHalfSizeY;
 static constexpr double worldHalfSizeZ = 2 * caloHalfSizeZ;
 
 // Geometry parameters of the SiPM
-static constexpr double sipmHalfSizeX = 1.3 * mm;
+static constexpr double sipmHalfSizeX = 1.1 / 2 * mm;
 static constexpr double sipmhalfSizeY = sipmX;
-static constexpr double sipmhalfSizeZ = 500 * um;
+static constexpr double sipmhalfSizeZ = 500 / 2 * um;
 
 // Geometry parameters of the SiPM, active silicon layer
-static constexpr double sipmSiliconHalfSizeX = 1. * mm;
-static constexpr double sipmSiliconHalfSizeY = sipmSiliconX;
-static constexpr double sipmSiliconHalfSizeZ = 300 * um;
+static constexpr double sipmSiliconHalfSizeX = 1. / 2 * mm;
+static constexpr double sipmSiliconHalfSizeY = sipmSiliconHalfSizeX;
+static constexpr double sipmSiliconHalfSizeZ = 300 / 2* um;
 
 class HidraDetectorConstruction : public G4VUserDetectorConstruction {
 public:
