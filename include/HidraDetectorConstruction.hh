@@ -37,7 +37,7 @@ static constexpr int nFiberCols = 16;
 // Not all modules are placed in the 10 x 24 shape
 static constexpr std::array<int, nModuleRows> nModulesInRow = {10, 10, 20, 20, 24, 24, 20, 20, 10, 10};
 static constexpr int nTotalModules = 168;
-static constexpr int nSensors = nFibersCols * nFibersRows * nTotalModules;
+static constexpr int nSensors = nFiberCols * nFiberRows * nTotalModules;
 
 // Tubes and fiber dimensions
 // TODO: Check this sizes!
@@ -50,8 +50,8 @@ static constexpr double fiberCladOuterRadius = 0.5 * mm;
 static constexpr double fiberHalfSizeZ = tubeHalfSizeZ;
 
 // Single module dimensions
-static constexpr double moduleHalfSizeX = tubeOuterRadius * nFibersCols;
-static constexpr double modulehalfSizeY = tubeOuterRadius * 1.733 * nFibersRows / 2;
+static constexpr double moduleHalfSizeX = tubeOuterRadius * nFiberCols;
+static constexpr double modulehalfSizeY = tubeOuterRadius * 1.733 * nFiberRows / 2;
 static constexpr double modulehalfSizeZ = 1000. * mm;
 
 // Size of full calorimeter
@@ -68,7 +68,7 @@ static constexpr double worldHalfSizeZ = 2 * caloHalfSizeZ;
 
 // Geometry parameters of the SiPM
 static constexpr double sipmHalfSizeX = 1.1 / 2 * mm;
-static constexpr double sipmhalfSizeY = sipmX;
+static constexpr double sipmhalfSizeY = sipmHalfSizeX;
 static constexpr double sipmhalfSizeZ = 500 / 2 * um;
 
 // Geometry parameters of the SiPM, active silicon layer
@@ -85,16 +85,20 @@ public:
   virtual void ConstructSDandField();
 
   void ConstructMaterials();
+  G4VPhysicalVolume* getLeakageCounterPV() const { return m_LeakageCounter; }
+  G4VPhysicalVolume* getWorldPV() const { return m_World; }
 
 private:
   // Use helper class for building, storing and retrieving materials
   void DefineMaterials();
-  G4Material* FindMaterial(std::string name) { return fMaterials->GetMaterial(name); }
+  G4Material* FindMaterial(std::string name) { return m_Materials->GetMaterial(name); }
 
   bool m_CheckOverlaps;
   
   // Define a region for fast optical photon transport
-  G4Region* m_FiberRegion;
+  G4Region* m_FastOpticalPhotonRegion = nullptr;
+  G4VPhysicalVolume* m_LeakageCounter = nullptr;
+  G4VPhysicalVolume* m_World = nullptr;
   // Helper class with materials
   HidraMaterials* m_Materials;
 }; // class
