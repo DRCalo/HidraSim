@@ -64,7 +64,9 @@ class DREMTubesDetectorConstruction : public G4VUserDetectorConstruction {
                                             G4Material* CladCherMaterial);
         //Getters
     	//
-	const G4VPhysicalVolume* GetLeakCntPV() const;
+	//const G4VPhysicalVolume* GetLeakCntPV() const;
+	const G4VPhysicalVolume* GetLeakCntlPV() const;
+	const G4VPhysicalVolume* GetLeakCntdPV() const;
     	const G4VPhysicalVolume* GetWorldPV() const;
 
         //Other methods
@@ -93,7 +95,9 @@ class DREMTubesDetectorConstruction : public G4VUserDetectorConstruction {
 				//
         G4bool  fCheckOverlaps; // option for checking volumes overlaps
 				
-				G4VPhysicalVolume* fLeakCntPV; //PV: lekage counter
+				//G4VPhysicalVolume* fLeakCntPV; //PV: lekage counter
+                G4VPhysicalVolume* fLeakCntlPV; //PV: lateral leakage counter
+                G4VPhysicalVolume* fLeakCntdPV; //PV: longitudinal leakage counter
 				G4VPhysicalVolume* fWorldPV;   //PV: wourld volume
 };
 
@@ -119,8 +123,14 @@ inline G4int DREMTubesDetectorConstruction::GetSiPMTower( const G4int& town ) co
     return SiPMTower;		
 }
 
-inline const G4VPhysicalVolume* DREMTubesDetectorConstruction::GetLeakCntPV() const {
-    return fLeakCntPV;
+//inline const G4VPhysicalVolume* DREMTubesDetectorConstruction::GetLeakCntPV() const {
+//    return fLeakCntPV;
+//}
+inline const G4VPhysicalVolume* DREMTubesDetectorConstruction::GetLeakCntlPV() const {
+    return fLeakCntlPV;
+}
+inline const G4VPhysicalVolume* DREMTubesDetectorConstruction::GetLeakCntdPV() const {
+    return fLeakCntdPV;
 }
 
 inline const G4VPhysicalVolume* DREMTubesDetectorConstruction::GetWorldPV() const {

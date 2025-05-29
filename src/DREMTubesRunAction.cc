@@ -52,15 +52,18 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     analysisManager->CreateNtupleDColumn("EnergyTot");                      //4
     analysisManager->CreateNtupleDColumn("PrimaryParticleEnergy");          //5
     analysisManager->CreateNtupleIColumn("PrimaryPDGID");                   //6
-    analysisManager->CreateNtupleDColumn("EscapedEnergy");                  //7
-    analysisManager->CreateNtupleDColumn("PSEnergy");                       //8
-    analysisManager->CreateNtupleDColumn("PrimaryX");                       //9
-    analysisManager->CreateNtupleDColumn("PrimaryY");                       //10
+    //analysisManager->CreateNtupleDColumn("EscapedEnergy");                  //7
+    analysisManager->CreateNtupleDColumn("EscapedEnergyl");                  //8
+    analysisManager->CreateNtupleDColumn("EscapedEnergyd");                  //9
+    analysisManager->CreateNtupleDColumn("PSEnergy");                       //10
+    analysisManager->CreateNtupleDColumn("PrimaryX");                       //11
+    analysisManager->CreateNtupleDColumn("PrimaryY");                       //12
     analysisManager->CreateNtupleDColumn("VectorSignals", fEventAction->GetVectorSignals());
     analysisManager->CreateNtupleDColumn("VectorSignalsCher", fEventAction->GetVectorSignalsCher());
     analysisManager->CreateNtupleDColumn("VecTowerE", fEventAction->GetVecTowerE());
     analysisManager->CreateNtupleDColumn("VecSPMT", fEventAction->GetVecSPMT());
     analysisManager->CreateNtupleDColumn ("VecCPMT", fEventAction->GetVecCPMT());
+    analysisManager->CreateNtupleDColumn ("VecLeakCounter", fEventAction->GetVecLeakCounter());
     analysisManager->FinishNtuple();
       
 }
