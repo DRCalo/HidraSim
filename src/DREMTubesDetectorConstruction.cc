@@ -53,7 +53,7 @@ const G4double sq3m1=sq3/3.;
 DREMTubesDetectorConstruction::DREMTubesDetectorConstruction()
     : G4VUserDetectorConstruction(),
     fCheckOverlaps(false),
-		fLeakCntPV(nullptr),
+		//fLeakCntPV(nullptr),
     fWorldPV(nullptr){
 }
 
@@ -153,6 +153,7 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     G4Material* CherMaterial = G4Material::GetMaterial("PMMA");
     G4Material* GlassMaterial = G4Material::GetMaterial("Glass");
     G4Material* CladCherMaterial = G4Material::GetMaterial("Fluorinated_Polymer");
+    G4Material* LeakCounterScinMaterial = nistManager->FindOrBuildMaterial("G4_POLYSTYRENE");
 
     //--------------------------------------------------
     //Define Optical Properties
@@ -333,9 +334,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
 
     // Geometry parameters of the world, world is a G4Box
     //
-    G4double worldX = 200 * moduleX;
-    G4double worldY = 200 * moduleY;
-    G4double worldZ = 60 * moduleZ;
+    //G4double worldX = 200 * moduleX;
+    //G4double worldY = 200 * moduleY;
+    //G4double worldZ = 60 * moduleZ;
 
     // Geometry parameters of the fiber
     //
@@ -381,6 +382,37 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     G4double PSX = 9.2*cm;
     G4double PSY = 9.2*cm;
     G4double PSZ = 1.*cm;
+
+
+    // Leakage counter dimensions
+    G4double leakBoxX = 50.*cm; 
+    G4double leakBoxY = 12.*cm;
+    G4double leakBoxZ = 50.*cm;    
+    G4double tailCatcherDist = 50.*cm;
+
+
+    // Define calorimeter size, and then define world on it
+    // to ensure world is large enough
+    // Calorimeter (matrix of modules equipped)
+    // 
+    G4double caloX=0.;
+    G4double caloY=0.;
+    G4double caloZ=0.;
+    if(irot) {
+      caloX=moduleequippedY*NofmodulesX/2;
+      caloY=moduleequippedX*NofmodulesY/2;
+      caloZ=moduleequippedZ/2;      
+    }
+    else {
+      caloX=moduleequippedX*NofmodulesX/2;
+      caloY=moduleequippedY*NofmodulesY/2;
+      caloZ=moduleequippedZ/2;      
+    }
+    G4double worldX = 50. * caloX;
+    G4double worldY = 50. * caloY;
+    G4double worldZ = 50. * caloZ;
+    std::cout << " caloX " << caloX << " caloY " << caloY << std::endl;
+   
 
     // Building geometries
     //
@@ -454,10 +486,13 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     PSScinVisAtt->SetVisibility(true);
     PSScinLV->SetVisAttributes( PSScinVisAtt );
 */    
+
+    /********** Original leakage volume (sphere)  ***************/
+    /*
     //Absorber to calculate leakage
     //
     G4VSolid* leakageabsorber = new G4Sphere("leakageabsorber",                        
-        7.*m, 7.1*m, 0.*deg, 360.*deg, 0.*deg, 180.*deg); 
+        17.*m, 17.1*m, 0.*deg, 360.*deg, 0.*deg, 180.*deg); 
     
     G4LogicalVolume* leakageabsorberLV = new G4LogicalVolume(leakageabsorber,
                                                              defaultMaterial,  
@@ -472,7 +507,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
                                     false,          
                                     0,               
                                     fCheckOverlaps);
+    */
 
+                                    
    // Module equipped (with SiPM)
    //
    // Basic module structure: extrusion of an hexcell shape
@@ -487,21 +524,20 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
                                                             defaultMaterial,
                                                             "moduleequipped"); 
 
-    // Calorimeter (matrix of modules equipped)
-    // 
-    G4double caloX=0.;
-    G4double caloY=0.;
-    G4double caloZ=0.;
-    if(irot) {
-      caloX=moduleequippedY*NofmodulesX/2;
-      caloY=moduleequippedX*NofmodulesY/2;
-      caloZ=moduleequippedZ/2;      
-    }
-    else {
-      caloX=moduleequippedX*NofmodulesX/2;
-      caloY=moduleequippedY*NofmodulesY/2;
-      caloZ=moduleequippedZ/2;      
-    }
+
+    // Define Calorimeter Box to put physical leakage counters in
+    // distances from calorimeter to box surface ~ 10cm
+    G4double distCaloBox = 5.*cm;
+    G4double caloBoxX = caloX+leakBoxX/2+distCaloBox; G4double caloBoxY = caloY+leakBoxZ/2+distCaloBox; G4double caloBoxZ = caloZ + distCaloBox;
+    //G4VSolid* CalorimeterBoxSolid = new G4Box("CalorimeterBoxSolid", caloX+leakBoxX/2+distCaloBox, caloY+leakBoxZ/2+distCaloBox, caloZ);
+    G4VSolid* CalorimeterBoxSolid = new G4Box("CalorimeterBoxSolid", caloBoxX, caloBoxY, caloBoxZ);
+
+    G4LogicalVolume* CalorimeterBoxLV = new G4LogicalVolume( CalorimeterBoxSolid,
+                                                          defaultMaterial,
+                                                          "CalorimeterBoxLV");
+
+
+
     G4VSolid* CalorimeterS = new G4Box("CalorimeterS",caloX,caloY,caloZ);
 
     G4LogicalVolume* CalorimeterLV = new G4LogicalVolume( CalorimeterS,
@@ -576,13 +612,105 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     position.setZ(0.);
     G4Transform3D transform = G4Transform3D(rotm,position); 
 
+
+    //
+    //  Build closed tube for detailed leakage study
+    //
+    // comment for later introducing boolean variable
+    // to include truth leakage counters (or not)
+    //if(TruthLeakageIn)
+    //{
+      //G4double leakradint=sqrt(caloX*caloX+caloY*caloY)*2.1;	// Added *1.2 wrt Giacomo's
+      //G4double leakradint=sqrt( (caloX+leakBoxX/2)*(caloX+leakBoxX/2)+(caloY+leakBoxZ/2)*(caloY+leakBoxZ/2));	// Added *1.2 wrt Giacomo's
+      G4double leakradint=sqrt( (caloBoxX)*(caloBoxX)+(caloBoxY)*(caloBoxY));	// Added *1.2 wrt Giacomo's
+
+      G4double leakradout=leakradint+20*cm;
+      G4double tube_dPhi = 2.* M_PI * rad;
+      G4double disc_th = 20.*cm;
+      G4VSolid* leakageabsorberl = new G4Tubs("leakageabsorberl",
+          leakradint, leakradout, caloBoxZ + tailCatcherDist + leakBoxZ, 0., tube_dPhi );
+
+      G4LogicalVolume* leakageabsorberlLV = new G4LogicalVolume(leakageabsorberl,
+                                                              defaultMaterial,  
+                                                              "leakageabsorberl");        
+      G4VisAttributes* LkVisAttl = new G4VisAttributes(G4Colour(0.0,0.8,0.0)); //green
+      LkVisAttl->SetVisibility(true);
+      LkVisAttl->SetForceWireframe(true);
+      LkVisAttl->SetForceSolid(true);
+      leakageabsorberlLV->SetVisAttributes(LkVisAttl);
+      //leakageabsorberlLV->SetVisAttributes(invisibleAttr); 	// Default is uncommented
+      leakageabsorberlLV->SetVisAttributes(G4VisAttributes::Invisible);
+
+      new G4PVPlacement( transform,
+              leakageabsorberlLV,         
+                                      "leakageabsorberl",
+                                      worldLV,               
+                                      false,          
+                                      0,               
+                                      fCheckOverlaps);
+
+      G4VSolid* leakageabsorberd = new G4Tubs("leakageabsorberd",
+          0, leakradout, disc_th/2, 0., tube_dPhi );
+
+      G4LogicalVolume* leakageabsorberdLV = new G4LogicalVolume(leakageabsorberd,
+                                                              defaultMaterial,  
+                                                              "leakageabsorberd");        
+      G4VisAttributes* LkVisAttd = new G4VisAttributes(G4Colour(0.0,0.4,0.0)); //green
+      LkVisAttd->SetVisibility(true);
+      LkVisAttd->SetForceWireframe(true);
+      LkVisAttd->SetForceSolid(true);
+      leakageabsorberdLV->SetVisAttributes(LkVisAttd);
+      //leakageabsorberdLV->SetVisAttributes(invisibleAttr); 	// Default is uncommented
+      leakageabsorberdLV->SetVisAttributes(G4VisAttributes::Invisible);
+      G4ThreeVector positiond;
+      //positiond.setX(caloZ*sin(xrot)+xcomp);
+      //positiond.setY(-caloZ*sin(yrot)+ycomp);
+      positiond.setX(caloBoxZ*sin(xrot));
+      positiond.setY(-caloBoxZ*sin(yrot));
+
+      positiond.setZ(caloBoxZ+disc_th/2 + tailCatcherDist + 2*leakBoxY + 30.*cm);
+      G4Transform3D transformd = G4Transform3D(rotm,positiond); 
+      new G4PVPlacement( transformd,
+                        leakageabsorberdLV,
+                        "leakageabsorberd",
+                        worldLV,
+                        false,
+                        0,
+                        fCheckOverlaps);
+
+    //}
+
+
+
+
+
+    // rotate box containing calorimeter according to input angles and shifts
     /*G4VPhysicalVolume* CalorimeterPV =*/ new G4PVPlacement(transform,
-                                                         CalorimeterLV,
-                                                         "Calorimeter",
+                                                         CalorimeterBoxLV,
+                                                         "CalorimeterBox",
                                                          worldLV,
                                                          false,
                                                          0,
                                                          fCheckOverlaps);
+
+
+    // Calorimter rotation inside box (just for a correct placing)
+    G4RotationMatrix RotationInsideBox  = G4RotationMatrix();
+    G4ThreeVector PositionInsideBox;
+    PositionInsideBox.setX(0.); PositionInsideBox.setY(0.); PositionInsideBox.setZ(0.);    
+    G4Transform3D TransformInsideBox = G4Transform3D(RotationInsideBox, PositionInsideBox); 
+
+
+    /*G4VPhysicalVolume* CalorimeterPV =*/ new G4PVPlacement(TransformInsideBox,
+                                                         CalorimeterLV,
+                                                         "Calorimeter",
+                                                         CalorimeterBoxLV,
+                                                         false,
+                                                         0,
+                                                         fCheckOverlaps);
+
+
+
 
     // Module (same shape as moduleequipped)
     //
@@ -860,6 +988,99 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
         };
     };
 
+
+
+
+  G4VSolid* leakBoxS = new G4Box("leakbox", leakBoxX/2, leakBoxY/2, leakBoxZ/2);
+  G4String sideString[4] = {"up", "right", "down", "left"};
+  G4RotationMatrix siderotm = rotm;
+  siderotm.rotateZ(90*deg);
+  // temporary shifts until GeoMessenger is introduced
+  G4double fXshift=xcomp; 
+  G4double fYshift=ycomp;
+  // commented for now, introduce boolean variable
+  // in DREMTubesGeoPar.hh to include leakage counters (or not)
+  //if(LeakageCounterIn)
+  //{
+    for(int leakCounter = 0; leakCounter<NofLeakCounterLayers; leakCounter++)
+    {
+      //G4ThreeVector leakupPosition; leakupPosition.setX(fXshift); leakupPosition.setY(fYshift+caloY+leakBoxY+1.*cm); leakupPosition.setZ(-caloZ/2 - leakBoxZ/2 + leakBoxZ*leakCounter*2);
+      G4ThreeVector leakupPosition; leakupPosition.setX(fXshift); leakupPosition.setY(fYshift+caloY+leakBoxY+distCaloBox); leakupPosition.setZ(-caloZ/2 - leakBoxZ/2 + caloZ/NofLeakCounterLayers*leakCounter*2);
+      G4Transform3D transform_leakupBox = G4Transform3D(rotm, leakupPosition);
+      G4LogicalVolume* leakupBoxLV = new G4LogicalVolume(leakBoxS, LeakCounterScinMaterial, "leakbox");
+      G4VisAttributes* leakupBoxVisAtt = new G4VisAttributes(G4Colour(0.9,0,0.0));
+      leakupBoxVisAtt->SetVisibility(true);
+      leakupBoxVisAtt->SetForceWireframe(true);
+      leakupBoxVisAtt->SetForceSolid(true);
+      leakupBoxLV->SetVisAttributes(leakupBoxVisAtt);
+      //new G4PVPlacement(transform_leakupBox, leakupBoxLV, "leakupBox", CalorimeterLV, false, 0, fCheckOverlaps);
+      new G4PVPlacement(0, leakupPosition, leakupBoxLV, "leakbox", CalorimeterBoxLV, false, 4*leakCounter, fCheckOverlaps);
+
+      G4ThreeVector leakrightPosition; leakrightPosition.setX(fXshift+caloX+leakBoxY+distCaloBox); leakrightPosition.setY(fYshift); leakrightPosition.setZ(-caloZ/2 - leakBoxZ/2 + caloZ/NofLeakCounterLayers*leakCounter*2);
+      //G4Transform3D transform_leakrightBox = G4Transform3D(siderotm, leakrightPosition);
+      G4Transform3D transform_leakrightBox = G4Transform3D(G4RotationMatrix(0., 0., 90*deg), leakrightPosition);
+      G4LogicalVolume* leakrightBoxLV = new G4LogicalVolume(leakBoxS, LeakCounterScinMaterial, "leakbox");
+      G4VisAttributes* leakrightBoxVisAtt = new G4VisAttributes(G4Colour(0.9,0,0.0));
+      leakrightBoxVisAtt->SetVisibility(true);
+      leakrightBoxVisAtt->SetForceWireframe(true);
+      leakrightBoxVisAtt->SetForceSolid(true);
+      leakrightBoxLV->SetVisAttributes(leakrightBoxVisAtt);
+      new G4PVPlacement(transform_leakrightBox, leakrightBoxLV, "leakbox", CalorimeterBoxLV, false, 4*leakCounter+1, fCheckOverlaps);
+
+      G4ThreeVector leakdownPosition; leakdownPosition.setX(fXshift); leakdownPosition.setY(fYshift-caloY-leakBoxY-distCaloBox); leakdownPosition.setZ(-caloZ/2 - leakBoxZ/2 + caloZ/NofLeakCounterLayers*leakCounter*2);
+      G4Transform3D transform_leakdownBox = G4Transform3D(rotm, leakdownPosition);
+      G4LogicalVolume* leakdownBoxLV = new G4LogicalVolume(leakBoxS, LeakCounterScinMaterial, "leakbox");
+      G4VisAttributes* leakdownBoxVisAtt = new G4VisAttributes(G4Colour(0.9,0,0.0));
+      leakdownBoxVisAtt->SetVisibility(true);
+      leakdownBoxVisAtt->SetForceWireframe(true);
+      leakdownBoxVisAtt->SetForceSolid(true);
+      leakdownBoxLV->SetVisAttributes(leakdownBoxVisAtt);
+      new G4PVPlacement(0, leakdownPosition, leakdownBoxLV, "leakbox", CalorimeterBoxLV, false, 4*leakCounter+2, fCheckOverlaps);
+
+      G4ThreeVector leakleftPosition; leakleftPosition.setX(fXshift-caloX-leakBoxY-distCaloBox); leakleftPosition.setY(fYshift); leakleftPosition.setZ(-caloZ/2 - leakBoxZ/2 + caloZ/NofLeakCounterLayers*leakCounter*2);
+      //G4Transform3D transform_leakleftBox = G4Transform3D(siderotm, leakleftPosition);
+      G4Transform3D transform_leakleftBox = G4Transform3D(G4RotationMatrix(0., 0., 90*deg), leakleftPosition);
+      G4LogicalVolume* leakleftBoxLV = new G4LogicalVolume(leakBoxS, LeakCounterScinMaterial, "leakbox");
+      G4VisAttributes* leakleftBoxVisAtt = new G4VisAttributes(G4Colour(0.9,0,0.0));
+      leakleftBoxVisAtt->SetVisibility(true);
+      leakleftBoxVisAtt->SetForceWireframe(true);
+      leakleftBoxVisAtt->SetForceSolid(true);
+      leakleftBoxLV->SetVisAttributes(leakleftBoxVisAtt);
+      new G4PVPlacement(transform_leakleftBox, leakleftBoxLV, "leakbox", CalorimeterBoxLV, false, 4*leakCounter+3, fCheckOverlaps);
+
+    }
+
+    G4ThreeVector tailCatcherPosition; tailCatcherPosition.setX(fXshift); tailCatcherPosition.setY(fYshift); tailCatcherPosition.setZ(caloZ + leakBoxY/2 + tailCatcherDist);
+    G4RotationMatrix tailrotm;
+    tailrotm.rotateX(90*deg);
+    G4Transform3D transform_tailCatcherBox = G4Transform3D(tailrotm, tailCatcherPosition);
+    G4LogicalVolume* tailCatcherBoxLV = new G4LogicalVolume(leakBoxS, LeakCounterScinMaterial, "leakbox");
+    G4VisAttributes* tailCatcherBoxVisAtt = new G4VisAttributes(G4Colour(0.9,0,0.0));
+    tailCatcherBoxVisAtt->SetVisibility(true);
+    tailCatcherBoxVisAtt->SetForceWireframe(true);
+    tailCatcherBoxVisAtt->SetForceSolid(true);
+    tailCatcherBoxLV->SetVisAttributes(tailCatcherBoxVisAtt);
+    //new G4PVPlacement(transform_tailCatcherBox, tailCatcherBoxLV, "tailCatcherBox", CalorimeterLV, false, 0, fCheckOverlaps);
+    new G4PVPlacement(transform_tailCatcherBox, tailCatcherBoxLV, "leakbox", worldLV, false, 4*NofLeakCounterLayers, fCheckOverlaps);
+  //}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // Return physical world
     //
     return fWorldPV;
@@ -887,7 +1108,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     G4LogicalVolume* logic_S_fiber = new G4LogicalVolume(S_fiber,
                                                          absorberMaterial,
                                                          "S_fiber");
-//    logic_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
 	
     G4Tubs* Abs_S_fiber = new G4Tubs("Abs_Scin_fiber", claddingradiusmax, tuberadius, fiberZ/2,0.,2.*pi);
 
@@ -915,7 +1136,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     ScincoreVisAtt->SetForceWireframe(true);
     ScincoreVisAtt->SetForceSolid(true);
     logic_Core_S_fiber->SetVisAttributes(ScincoreVisAtt);
-//    logic_Core_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Core_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
     G4ThreeVector vec_Core_S;
     vec_Core_S.setX(0.);
     vec_Core_S.setY(0.);
@@ -944,7 +1165,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     ScincladVisAtt->SetForceWireframe(true);
     ScincladVisAtt->SetForceSolid(true);
     logic_Clad_S_fiber->SetVisAttributes(ScincladVisAtt);
-//    logic_Clad_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Clad_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
 
     G4ThreeVector vec_Clad_S;
     vec_Clad_S.setX(0.);
@@ -966,7 +1187,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     TubeVisAtt->SetForceWireframe(true);
     TubeVisAtt->SetForceSolid(true);
     logic_Abs_S_fiber->SetVisAttributes(TubeVisAtt);
-//    logic_Abs_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Abs_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
     
     return logic_S_fiber;
 
@@ -992,7 +1213,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
                                                          absorberMaterial,
                                                          "C_fiber");
 
-//    logic_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
     G4Tubs* Abs_C_fiber = new G4Tubs("Abs_Cher_fiber", claddingradiusmax, tuberadius, fiberZ/2,0.,2.*pi);
 
     G4LogicalVolume* logic_Abs_C_fiber = new G4LogicalVolume(Abs_C_fiber,
@@ -1018,7 +1239,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     ChercoreVisAtt->SetForceWireframe(true);
     ChercoreVisAtt->SetForceSolid(true);
     logic_Core_C_fiber->SetVisAttributes(ChercoreVisAtt);
-//    logic_Core_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Core_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
     G4ThreeVector vec_Core_C;
     vec_Core_C.setX(0.);
     vec_Core_C.setY(0.);
@@ -1046,7 +1267,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     ChercladVisAtt->SetForceWireframe(true);
     ChercladVisAtt->SetForceSolid(true);
     logic_Clad_C_fiber->SetVisAttributes(ChercladVisAtt);
-//    logic_Clad_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Clad_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
 
     G4ThreeVector vec_Clad_C;
     vec_Clad_C.setX(0.);
@@ -1067,7 +1288,7 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     TubeVisAtt->SetForceWireframe(true);
     TubeVisAtt->SetForceSolid(true);
     logic_Abs_C_fiber->SetVisAttributes(TubeVisAtt);
-//    logic_Abs_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Abs_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
 
     return logic_C_fiber;
 

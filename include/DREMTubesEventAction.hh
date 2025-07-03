@@ -39,7 +39,9 @@ class DREMTubesEventAction : public G4UserEventAction {
         void SavePrimaryXY(G4double x, G4double y);
         void SaveAbsorberMaterial(G4String AbsorberMaterialName);
         void SavePrimaryEnergy(G4double primaryparticleenergy);
-        void AddEscapedEnergy(G4double escapedenergy);
+        //void AddEscapedEnergy(G4double escapedenergy);
+        void AddEscapedEnergyl(G4double escapedenergy);
+        void AddEscapedEnergyd(G4double escapedenergy);       
         void AddPSEnergy(G4double de);
 
         //Save vectors in ntuple
@@ -49,6 +51,7 @@ class DREMTubesEventAction : public G4UserEventAction {
 	std::vector<G4double>& GetVecTowerE() {return VecTowerE;}
 	std::vector<G4double>& GetVecSPMT() {return VecSPMT;}
 	std::vector<G4double>& GetVecCPMT() {return VecCPMT;}
+    std::vector<G4double>& GetVecLeakCounter() {return VecLeakCounter;}
 
         //Fill vector of scintillating fibers with energy deposition
         //
@@ -65,6 +68,10 @@ class DREMTubesEventAction : public G4UserEventAction {
     	//Fill vector of signals in Cherenkov PMTs
         //
 	void AddVecCPMT(G4int PMTID, G4double de);
+    //
+    //  Fill leakage counter with deposited energy
+    void AddVecLeakCounter(G4int LCID, G4double de);
+    //    
 
     private:
         G4double  EnergyScin; //Energy in scintillating fibers
@@ -76,7 +83,9 @@ class DREMTubesEventAction : public G4UserEventAction {
         G4double  PrimaryParticleEnergy; //Primary particle energy
         G4double  PrimaryX; //Primary particle energy
         G4double  PrimaryY; //Primary particle energy
-        G4double  EscapedEnergy; //Energy deposited in leakage absorber
+        //G4double  EscapedEnergy; //Energy deposited in leakage absorber
+        G4double  EscapedEnergyl; //Energy deposited in leakage lateral absorber
+        G4double  EscapedEnergyd; //Energy deposited in leakage longitudinal absorber        
 	G4double  PSEnergy;
 
         //Vector of SiPMs filled with scintillating signals
@@ -94,15 +103,23 @@ class DREMTubesEventAction : public G4UserEventAction {
     	//Vector of energy deposited in towers
 	//
     	std::vector<G4double> VecTowerE;
+        //
+   	    std::vector<G4double> VecLeakCounter;
+        //        
 
 };
 
 //Inline functions definition
 //
-inline void DREMTubesEventAction::AddEscapedEnergy(G4double escapedenergy){
-    EscapedEnergy += escapedenergy;
+//inline void DREMTubesEventAction::AddEscapedEnergy(G4double escapedenergy){
+//    EscapedEnergy += escapedenergy;
+//}
+inline void DREMTubesEventAction::AddEscapedEnergyl(G4double escapedenergy){
+    EscapedEnergyl += escapedenergy;
 }
-
+inline void DREMTubesEventAction::AddEscapedEnergyd(G4double escapedenergy){
+    EscapedEnergyd += escapedenergy;
+}
 inline void DREMTubesEventAction::SavePrimaryPDGID(G4int pdgid){
     PrimaryPDGID = pdgid;
 }
@@ -134,6 +151,10 @@ inline void DREMTubesEventAction::AddVecSPMT(G4int PMTID, G4double de) {
 
 inline void DREMTubesEventAction::AddVecCPMT(G4int PMTID, G4double de) {
     VecCPMT.at(PMTID) += de;
+}
+
+inline void DREMTubesEventAction::AddVecLeakCounter(G4int LCID, G4double de) {
+    VecLeakCounter.at(LCID) += de;
 }
 
 inline void DREMTubesEventAction::AddScin(G4double de){

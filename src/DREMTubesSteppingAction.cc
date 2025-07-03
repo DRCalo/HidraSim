@@ -77,14 +77,23 @@ void DREMTubesSteppingAction::AuxSteppingAction( const G4Step* step ) {
     //Store auxiliary information from event steps
     //--------------------------------------------------
 
-    if ( volume == fDetConstruction->GetLeakCntPV() ){
+    //if ( volume == fDetConstruction->GetLeakCntPV() ){
         //Take care operator== works with pointers only
 	//if there is a single placement of the volume
 	//use names or cpNo if not the case
 	//
-        fEventAction->AddEscapedEnergy(step->GetTrack()->GetKineticEnergy());
+    //    fEventAction->AddEscapedEnergy(step->GetTrack()->GetKineticEnergy());
+    //    step->GetTrack()->SetTrackStatus(fStopAndKill);
+    //} 
+    if ( volume->GetName() == "leakageabsorberl"){
+        fEventAction->AddEscapedEnergyl(step->GetTrack()->GetKineticEnergy());
         step->GetTrack()->SetTrackStatus(fStopAndKill);
     } 
+    if ( volume->GetName() == "leakageabsorberd" ){
+        fEventAction->AddEscapedEnergyd(step->GetTrack()->GetKineticEnergy());
+        step->GetTrack()->SetTrackStatus(fStopAndKill);
+    } 
+
 
     if ( volume->GetName() == "Clad_S_fiber" ||
          volume->GetName() == "Core_S_fiber" ||
@@ -100,10 +109,19 @@ void DREMTubesSteppingAction::AuxSteppingAction( const G4Step* step ) {
         fEventAction->AddPSEnergy( edep );
     }
     
+    if(volume->GetName() == "leakbox"){
+        G4int LCID = step->GetPreStepPoint()->GetTouchableHandle()->GetCopyNumber(0);
+        fEventAction->AddVecLeakCounter(LCID, edep); 
+
+    }
+
     if ( volume != fDetConstruction->GetWorldPV() &&
-         volume != fDetConstruction->GetLeakCntPV() &&
+         //volume != fDetConstruction->GetLeakCntPV() &&
+         volume != fDetConstruction->GetLeakCntlPV() &&
+         volume != fDetConstruction->GetLeakCntdPV() &&
          volume->GetName() != "Preshower_scin" &&
-         volume->GetName() != "Preshower_pb" ) { fEventAction->Addenergy(edep); }
+         volume->GetName() != "Preshower_pb" &&
+         volume->GetName() != "leakbox" ) { fEventAction->Addenergy(edep); }
    
     if ( step->GetTrack()->GetTrackID() == 1 &&
         step->GetTrack()->GetCurrentStepNumber() == 1){
