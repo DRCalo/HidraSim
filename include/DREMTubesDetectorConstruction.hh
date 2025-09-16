@@ -21,6 +21,7 @@
 
 //Include geometrical parameters
 #include "DREMTubesGeoPar.hh"
+#include "DREMTubesGeoMessenger.hh"
 //Forward declaration
 //
 class G4VPhysicalVolume;
@@ -64,18 +65,33 @@ class DREMTubesDetectorConstruction : public G4VUserDetectorConstruction {
                                             G4Material* CladCherMaterial);
         //Getters
     	//
-	//const G4VPhysicalVolume* GetLeakCntPV() const;
-	const G4VPhysicalVolume* GetLeakCntlPV() const;
-	const G4VPhysicalVolume* GetLeakCntdPV() const;
-    	const G4VPhysicalVolume* GetWorldPV() const;
+        //const G4VPhysicalVolume* GetLeakCntPV() const;
+        const G4VPhysicalVolume* GetLeakCntlPV() const;
+        const G4VPhysicalVolume* GetLeakCntdPV() const;
+        const G4VPhysicalVolume* GetWorldPV() const;
 
         //Other methods
-	//
-	G4int GetTowerID( const G4int& cpno ) const;
-        G4int GetSiPMID(const G4int& cpno ) const; 
-	G4int GetSiPMTower(const G4int& town ) const;
-       
         //
+        G4int GetTowerID( const G4int& cpno ) const;
+        G4int GetSiPMID(const G4int& cpno ) const; 
+        G4int GetSiPMTower(const G4int& town ) const;
+
+        G4double GetXshift() const {return fXshift;};
+        G4double GetYshift() const {return fYshift;};
+        G4double GetOrzrot() const {return fOrzrot;};
+        G4double GetVerrot() const {return fVerrot;};
+
+        //Setters
+        //
+        void SetXshift(const G4double& val) {fXshift=val;};
+        void SetYshift(const G4double& val) {fYshift=val;};
+        void SetOrzrot(const G4double& val) {fOrzrot=val;};
+        void SetVerrot(const G4double& val) {fVerrot=val;};
+
+
+
+
+    //
 	//  Build contour in x-y plane of a module as 
 	//  an hexcell shape
 	//
@@ -86,19 +102,24 @@ class DREMTubesDetectorConstruction : public G4VUserDetectorConstruction {
         //Mandatory method for Geant4
         //
         G4VPhysicalVolume* DefineVolumes();
-/*
-	void DefineCommands();
-	G4GenericMessenger* fMessenger;
-	G4double fAngleX;
-	G4double fAngleY;
-*/				//Members
-				//
+
+        //Members
+        //
         G4bool  fCheckOverlaps; // option for checking volumes overlaps
 				
 				//G4VPhysicalVolume* fLeakCntPV; //PV: lekage counter
                 G4VPhysicalVolume* fLeakCntlPV; //PV: lateral leakage counter
                 G4VPhysicalVolume* fLeakCntdPV; //PV: longitudinal leakage counter
 				G4VPhysicalVolume* fWorldPV;   //PV: wourld volume
+
+        //Pointer to messenger for UI
+        //
+        DREMTubesGeoMessenger* fGeoMessenger = nullptr;
+
+        //Parameters selectable via UI
+        //
+        G4double fXshift{0.}, fYshift{0.}, fVerrot{0.}, fOrzrot{0.};
+
 };
 
 inline G4int DREMTubesDetectorConstruction::GetTowerID( const G4int& cpno ) const {

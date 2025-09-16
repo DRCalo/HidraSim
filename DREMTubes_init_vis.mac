@@ -1,10 +1,18 @@
+#Uncomment the /tbgeo paramenters below for geometry visualization
+#with non-default parameters
+#/tbgeo/xshift x mm
+#/tbgeo/yshift y mm
+#/tbgeo/horizrot theta deg
+#/tbgeo/verttot phi deg
+#or open the simulation in vis-gui mode (./DRTB23Sim)
+#pass the /tbgeo parameters and then call this macro
+#(/control/execute DREMTubes_init_vis.mac)
 #
 # Macro file for the initialization of DREMTubes and visualization settings
 # in interactive session
 #
 # Set some default verbose
 #
-/control/verbose 2
 #/control/saveHistory
 /run/verbose 2
 #
