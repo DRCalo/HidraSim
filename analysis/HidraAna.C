@@ -26,32 +26,37 @@
 #include "HidraGeo.h"
 void HidraAna(double energy, const string intup){
 //Open ntuples
-  string infile = "/home/storage/hidradata/"+intup;
+  string infile = "../build/"+intup;
   std::cout<<"Using file: "<<infile<<std::endl;
   char cinfile[infile.size() + 1];
   strcpy(cinfile, infile.c_str());
   auto simfile = new TFile(cinfile, "READ");
   auto *simtree = (TTree*)simfile->Get( "DREMTubesout" );
+  std::cout << "\n Test 0 ongoing... \n" << std::endl;
+
   std::ostringstream os;
   os << energy;
   std::string enstr = os.str();
   string outfile="hidra"+enstr+".root";
   TFile f(outfile.c_str(), "RECREATE");
+  std::cout << "\n Test 1 ongoing... \n" << std::endl;
+
 //
 //  build vectors with row and column position of each of
 //  the MiniModules
 //
-  int modcol[84];
-  int modrow[84];
-  for(int i=0;i<120;i++){
-    int row=i/NofmodulesX;
-    int col=i%NofmodulesX;
+  int modcol[NofModulesX*NofModulesY];
+  int modrow[NofModulesX*NofModulesY];
+  for(int i=0;i<NofModulesX*NofModulesY;i++){
+    int row=i/NofModulesX;
+    int col=i%NofModulesX;
     int imod=modflag[i];
     if(imod>=0){
       modcol[imod]=col;
       modrow[imod]=row;
     }
   }
+  std::cout << "\n Test 2 ongoing... \n" << std::endl;
 // book histograms  
   double bmin=energy-0.4*sqrt(energy)*10.;
   double bmax=energy+0.4*sqrt(energy)*10.;
@@ -62,7 +67,10 @@ void HidraAna(double energy, const string intup){
   auto totdep = new TH1F("totdep", "totdep",100,bmin,bmax);
   auto leakene = new TH1F("leakene", "leakene",100,0.,0.1);
   auto chidist = new TH1F("chidist", "chidist",100,0.,1.);
-  auto mapcalo  = new TH2F("mapcalo", "mapcalo",NofmodulesX,0.,NofmodulesX,NofmodulesY,0.,NofmodulesY);
+  auto mapcalo  = new TH2F("mapcalo", "mapcalo",NofModulesX,0.,NofModulesX,NofModulesY,0.,NofModulesY);
+  auto SipmMapS = new TH2F("SipmMapS", "SipmS; Col; Row", NofSiPMTowersX*NofFiberscolumn, 0, NofSiPMTowersX*NofFiberscolumn, NofSiPMTowersY*NofFibersrow/2, 0, NofSiPMTowersY*NofFibersrow);
+  auto SipmMapC = new TH2F("SipmMapC", "SipmC; Col; Row", NofSiPMTowersX*NofFiberscolumn, 0, NofSiPMTowersX*NofFiberscolumn, NofSiPMTowersY*NofFibersrow/2, 0, NofSiPMTowersY*NofFibersrow);
+
 
   int nentries=simtree->GetEntries();
   std::cout<<"Entries "<<nentries<<std::endl;
@@ -70,10 +78,11 @@ void HidraAna(double energy, const string intup){
 //Allocate branch pointers
   int pdg; simtree->SetBranchAddress( "PrimaryPDGID", &pdg );
   double venergy; simtree->SetBranchAddress( "PrimaryParticleEnergy", &venergy );
-  double lenergy; simtree->SetBranchAddress( "EscapedEnergy", &lenergy );
+  double lenergy; simtree->SetBranchAddress( "EscapedEnergyl", &lenergy );
+  double denergy; simtree->SetBranchAddress( "EscapedEnergyd", &denergy );
   double edep; simtree->SetBranchAddress( "EnergyTot", &edep );
-  double Stot; simtree->SetBranchAddress( "NofScinDet", &Stot );
-  double Ctot; simtree->SetBranchAddress( "NofCherDet", &Ctot );
+  double Stot; simtree->SetBranchAddress( "NofPMTScinDet", &Stot );
+  double Ctot; simtree->SetBranchAddress( "NofPMTCherDet", &Ctot );
   double PSdep; simtree->SetBranchAddress( "PSEnergy", &PSdep );
   double beamX; simtree->SetBranchAddress( "PrimaryX", &beamX );
   double beamY; simtree->SetBranchAddress( "PrimaryY", &beamY );
@@ -89,8 +98,10 @@ void HidraAna(double energy, const string intup){
   simtree->SetBranchAddress( "VectorSignalsCher", &CSiPM );
 // 
   double chi=0.38;   
-  double sciPheGeV=217.501;
-  double cerPheGeV=54.1621;
+  //double sciPheGeV=217.501;
+  //double cerPheGeV=54.1621;
+  double sciPheGeV=138.501;
+  double cerPheGeV=34.6;  
   double elcont=1.005;
   double picont=1.028;
 // Loop on events 
@@ -107,6 +118,29 @@ void HidraAna(double energy, const string intup){
       tottow+=TowerE->at(j);
       mapcalo->Fill(modcol[j],modrow[j],TowerE->at(j)/1000/nentries);
     }
+
+   for(unsigned int N=0; N<SSiPM->size(); N++){        // Loop over SiPMs - S Fibers
+      double content = SSiPM->at(N)/sciPheGeV;
+      unsigned int towID = static_cast<unsigned int>( N/(NofFiberscolumn*NofFibersrow/2) );
+      unsigned int SiPMID = N%(NofFiberscolumn*NofFibersrow/2);
+      unsigned int colID = static_cast<unsigned int>(SiPMID/(NofFibersrow/2));
+      unsigned int rowID = 2*static_cast<unsigned int>(SiPMID%(NofFibersrow/2)); 
+      //std::cout << "Tower: " << towID << "\tModule row: " << modrow[towID] << "\tSiPMID: " << SiPMID << "\tColumn: " << colID << "\tRow: " << rowID << "\tTotal row: " << towID*NofFibersrow+rowID << std::endl;
+      //SipmMapS->Fill( modcol[towID]*NofFiberscolumn + colID, modrow[towID]*NofFibersrow+rowID, content); 
+      SipmMapS->Fill( colID, towID*NofFibersrow+rowID, content); 
+      totsci+=content;
+    }
+
+   for(unsigned int N=0; N<CSiPM->size(); N++){        // Loop over SiPMs - S Fibers
+      double content = CSiPM->at(N)/cerPheGeV;
+      unsigned int towID = static_cast<unsigned int>( N/(NofFiberscolumn*NofFibersrow/2) );
+      unsigned int SiPMID = N%(NofFiberscolumn*NofFibersrow/2);
+      unsigned int colID = static_cast<unsigned int>(SiPMID/(NofFibersrow/2));
+      unsigned int rowID = 2*static_cast<unsigned int>(SiPMID%(NofFibersrow/2)) + 1; // Cerenkov fibres on odd rows 
+      SipmMapC->Fill( colID, towID*NofFibersrow+rowID, content); 
+      totcer+=content;
+    }
+
     sciene->Fill(totsci);        
     cerene->Fill(totcer);        
     totene->Fill(elcont*0.5*(totsci+totcer));   
@@ -115,13 +149,14 @@ void HidraAna(double energy, const string intup){
     leakene->Fill(lenergy/1000/energy);   
     chidist->Fill((totsci-ecalo)/(totcer-ecalo));    
   }
+  
   totenec->Fit("gaus","Q","");
   TF1 *fit1 = totenec->GetFunction("gaus");
   double peak1=fit1->GetParameter(1);
   double epeak1=fit1->GetParError(1);
   double rms1=fit1->GetParameter(2);
   double erms1=fit1->GetParError(2);
-  cout << " # " << energy << " " << peak1 << " " << epeak1 << " " << rms1 << " " << erms1 << endl;
+  //cout << " # " << energy << " " << peak1 << " " << epeak1 << " " << rms1 << " " << erms1 << endl;
   f.Write();
   //
 

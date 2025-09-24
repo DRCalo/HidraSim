@@ -47,17 +47,18 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     analysisManager->CreateNtuple("DREMTubesout", "DREMTubesoutput");
     analysisManager->CreateNtupleDColumn("EnergyScin");                     //0
     analysisManager->CreateNtupleDColumn("EnergyCher");                     //1
-    analysisManager->CreateNtupleDColumn("NofCherDet");                     //2
-    analysisManager->CreateNtupleDColumn("NofScinDet");                     //3
+    analysisManager->CreateNtupleDColumn("NofPMTCherDet");                  //2
+    analysisManager->CreateNtupleDColumn("NofPMTScinDet");                  //3
     analysisManager->CreateNtupleDColumn("EnergyTot");                      //4
     analysisManager->CreateNtupleDColumn("PrimaryParticleEnergy");          //5
     analysisManager->CreateNtupleIColumn("PrimaryPDGID");                   //6
-    //analysisManager->CreateNtupleDColumn("EscapedEnergy");                  //7
-    analysisManager->CreateNtupleDColumn("EscapedEnergyl");                  //8
-    analysisManager->CreateNtupleDColumn("EscapedEnergyd");                  //9
-    analysisManager->CreateNtupleDColumn("PSEnergy");                       //10
-    analysisManager->CreateNtupleDColumn("PrimaryX");                       //11
-    analysisManager->CreateNtupleDColumn("PrimaryY");                       //12
+    analysisManager->CreateNtupleDColumn("EscapedEnergyl");                 //7
+    analysisManager->CreateNtupleDColumn("EscapedEnergyd");                 //8
+    analysisManager->CreateNtupleDColumn("PSEnergy");                       //9
+    analysisManager->CreateNtupleDColumn("PrimaryX");                       //10
+    analysisManager->CreateNtupleDColumn("PrimaryY");                       //11
+    analysisManager->CreateNtupleDColumn("NofSiPMScinDet");                 //12
+    analysisManager->CreateNtupleDColumn("NofSiPMCherDet");                 //13    
     analysisManager->CreateNtupleDColumn("VectorSignals", fEventAction->GetVectorSignals());
     analysisManager->CreateNtupleDColumn("VectorSignalsCher", fEventAction->GetVectorSignalsCher());
     analysisManager->CreateNtupleDColumn("VecTowerE", fEventAction->GetVecTowerE());

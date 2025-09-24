@@ -14,12 +14,20 @@
 //Includers from Geant4
 //
 #include "globals.hh"
+#include "G4Step.hh"
 
 class DREMTubesSignalHelper {
 
     private:
 
         static DREMTubesSignalHelper* instance;
+
+		const G4double fk_B = 0.126; //Birks constant
+		const G4double fSAttenuationLength = 367.0*CLHEP::cm; // from TB24 data
+		const G4double fCAttenuationLength = 380.9*CLHEP::cm; // from TB24 data
+		//const G4double fSAttenuationLength = 191.6*CLHEP::cm; // from TB23 data
+		//const G4double fCAttenuationLength = 388.9*CLHEP::cm; // from TB23 data
+
 
 	//Private constructor (singleton)
         //
@@ -31,9 +39,22 @@ class DREMTubesSignalHelper {
 
     	G4double ApplyBirks( const G4double& de, const G4double& steplength );
 
-	G4int SmearSSignal( const G4double& de );
+		G4int SmearSSignalPMT( const G4double& de );
 
-    	G4int SmearCSignal( );
+    	G4int SmearCSignalPMT( );
+
+		G4int SmearSSignalSiPM( const G4double& de );
+
+    	G4int SmearCSignalSiPM( );
+
+
+    	G4double GetDistanceToSiPM(const G4Step* step);
+
+		G4int AttenuateHelper(const G4int& signal, const G4double& distance, const G4double& attenuation_length);
+
+		G4int AttenuateSSignal(const G4int& signal, const G4double& distance);
+
+		G4int AttenuateCSignal(const G4int& signal, const G4double& distance);
 
 };
 

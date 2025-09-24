@@ -10,6 +10,7 @@
 //Includers from project files
 //
 #include "DREMTubesDetectorConstruction.hh"
+#include "DREMTubesGeoMessenger.hh"
 
 //Includers from Geant4
 //
@@ -40,6 +41,76 @@
 #include "G4Colour.hh"
 #include "G4TwoVector.hh"
 
+//Messenger constructor
+//
+DREMTubesGeoMessenger::DREMTubesGeoMessenger(DREMTubesDetectorConstruction* DetConstruction)
+    : fDetConstruction(DetConstruction){
+    
+    //The Messenger directory and commands must be initialized
+    //within constructor
+    //
+    fMsgrDirectory = new G4UIdirectory("/tbgeo/");
+    fMsgrDirectory->SetGuidance("Set movable parameters in test-beam geometry.");
+
+    fXshiftcmd = new G4UIcmdWithADoubleAndUnit("/tbgeo/xshift", this);
+    fXshiftcmd->SetParameterName("xshift",/*omittable=*/false,/*currentAsDefault=*/true);
+    fXshiftcmd->SetGuidance("Shift test-beam platform x direction (default unit mm)");
+    fXshiftcmd->SetDefaultUnit("mm");
+    fXshiftcmd->SetDefaultValue(0.);
+    fYshiftcmd = new G4UIcmdWithADoubleAndUnit("/tbgeo/yshift", this);
+    fYshiftcmd->SetParameterName("yshift",/*omittable=*/false,/*currentAsDefault=*/true);
+    fYshiftcmd->SetGuidance("Shift test-beam platform y direction (default unit mm)");
+    fYshiftcmd->SetDefaultUnit("mm");
+    fYshiftcmd->SetDefaultValue(0.);
+    fOrzrotcmd = new G4UIcmdWithADoubleAndUnit("/tbgeo/horizrot", this);
+    fOrzrotcmd->SetParameterName("horizrot",/*omittable=*/false,/*currentAsDefault=*/true);
+    fOrzrotcmd->SetGuidance("Rotate platform (default deg)");
+    fOrzrotcmd->SetDefaultUnit("deg");
+    fOrzrotcmd->SetDefaultValue(0.);
+    fVerrotcmd = new G4UIcmdWithADoubleAndUnit("/tbgeo/vertrot", this);
+    fVerrotcmd->SetParameterName("vertrot",/*omittable=*/false,/*currentAsDefault=*/true);
+    fVerrotcmd->SetGuidance("Lift up calorimeter from back side (default deg)");
+    fVerrotcmd->SetDefaultUnit("deg");
+    fVerrotcmd->SetDefaultValue(0.);
+}
+
+
+//Messenger destructor
+//
+DREMTubesGeoMessenger::~DREMTubesGeoMessenger(){
+
+    //The Messenger fields should be deleted
+    //in destructor
+    delete fMsgrDirectory;
+    delete fXshiftcmd;
+    delete fYshiftcmd;
+    delete fOrzrotcmd;
+    delete fVerrotcmd;
+}
+
+//Messenger SetNewValue virtual method from base class
+//
+void DREMTubesGeoMessenger::SetNewValue(G4UIcommand* command, G4String newValue){
+
+    if(command == fXshiftcmd){
+        fDetConstruction->SetXshift(fXshiftcmd->GetNewDoubleValue(newValue));
+        G4cout<<"tbgeo: x-shifted test-beam setup by "<<fDetConstruction->GetXshift()<<" mm"<<G4endl;
+    }
+    else if(command == fYshiftcmd){
+        fDetConstruction->SetYshift(fYshiftcmd->GetNewDoubleValue(newValue));
+        G4cout<<"tbgeo: y-shifted test-beam setup by "<<fDetConstruction->GetYshift()<<" mm"<<G4endl;
+    }
+    else if(command == fOrzrotcmd){
+        fDetConstruction->SetOrzrot(fOrzrotcmd->GetNewDoubleValue(newValue));
+        G4cout<<"tbgeo: orz-rotated test-beam setup by "<<fDetConstruction->GetOrzrot()<<" rad"<<G4endl;
+    }
+    else if(command == fVerrotcmd){
+        fDetConstruction->SetVerrot(fVerrotcmd->GetNewDoubleValue(newValue));
+        G4cout<<"tbgeo: ver-rotated test-beam setup by "<<fDetConstruction->GetVerrot()<<" rad"<<G4endl;
+    }
+}
+
+
 //
 //  sqrt3 constants used in code
 //  reciprocal of sqrt3 given as number that divided 
@@ -55,11 +126,14 @@ DREMTubesDetectorConstruction::DREMTubesDetectorConstruction()
     fCheckOverlaps(false),
 		//fLeakCntPV(nullptr),
     fWorldPV(nullptr){
+
+    fGeoMessenger = new DREMTubesGeoMessenger(this);
+
 }
 
 //De-constructor
 //
-DREMTubesDetectorConstruction::~DREMTubesDetectorConstruction() {}
+DREMTubesDetectorConstruction::~DREMTubesDetectorConstruction() {    delete fGeoMessenger;}
 
 //Define Construct() method
 G4VPhysicalVolume* DREMTubesDetectorConstruction::Construct() {
@@ -437,55 +511,67 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
 
     //Preshower
     //
-/*
-    auto PSSolid = new G4Box("Preshower", PSX/2., PSY/2., PSZ/2.);
+    if(PreShowerIn)
+    {
+      auto PSSolid = new G4Box("Preshower", PSX/2., PSY/2., PSZ/2.);
 
-    auto PSLV = new G4LogicalVolume(PSSolid, defaultMaterial, "Preshower");
+      auto PSLV = new G4LogicalVolume(PSSolid, defaultMaterial, "Preshower");
 
-    new G4PVPlacement( 0, 
-		       G4ThreeVector(0.,0.,-335.*cm),
-		       PSLV,
-		       "Preshower",
-		       worldLV,
-		       false,
-		       0,
-		       fCheckOverlaps);	 
+      new G4PVPlacement( 0, 
+            //G4ThreeVector(0.,0.,-335.*cm),
+            //G4ThreeVector(0.,0.,-moduleZ/2 - 15.5*cm),
+            // This should be corrected with TB setup; note that PS position should be outside calo box, otherwise data is not saved           
+            //G4ThreeVector(0.,0.,-caloZ - 60*cm), 
+            //G4ThreeVector(0.,0.,-caloZ - 150.*cm), 
+            G4ThreeVector(0.,0.,-caloZ - 70.*cm), 
 
-    auto PSLeadSolid = new G4Box("Preshower_pb", PSX/2., PSY/2., PSZ/4.);
+            PSLV,
+            "Preshower",
+            worldLV,
+            false,
+            0,
+            fCheckOverlaps);	 
 
-    auto PSLeadLV = new G4LogicalVolume(PSLeadSolid, LeadMaterial, "Preshower_pb");
+      auto PSLeadSolid = new G4Box("Preshower_pb", PSX/2., PSY/2., PSZ/4.);
 
-    new G4PVPlacement( 0, 
-		       G4ThreeVector(0.,0.,-PSZ/4.),
-		       PSLeadLV,
-		       "Preshower_pb",
-		       PSLV,
-		       false,
-		       0,
-		       fCheckOverlaps);	 
+      auto PSLeadLV = new G4LogicalVolume(PSLeadSolid, LeadMaterial, "Preshower_pb");
 
-    G4VisAttributes* PbVisAtt = new G4VisAttributes( G4Colour::Grey() );
-    PbVisAtt->SetVisibility(true);
-    PbVisAtt->SetForceSolid(true);
-    PSLeadLV->SetVisAttributes( PbVisAtt );
+      new G4PVPlacement( 0, 
+            G4ThreeVector(0.,0.,-PSZ/4.),
+            PSLeadLV,
+            "Preshower_pb",
+            PSLV,
+            false,
+            0,
+            fCheckOverlaps);	 
 
-    auto PSScinSolid = new G4Box("Preshower_scin", PSX/2., PSY/2., PSZ/4.);
+      G4VisAttributes* PbVisAtt = new G4VisAttributes( G4Colour::Grey() );
+      PbVisAtt->SetVisibility(true);
+      PbVisAtt->SetForceSolid(true);
+      PSLeadLV->SetVisAttributes( PbVisAtt );
 
-    auto PSScinLV = new G4LogicalVolume(PSScinSolid, PSScinMaterial, "Preshower_scin");
+      auto PSScinSolid = new G4Box("Preshower_scin", PSX/2., PSY/2., PSZ/4.);
 
-    new G4PVPlacement( 0, 
-		       G4ThreeVector(0.,0.,PSZ/4.),
-                       PSScinLV,
-	               "Preshower_scin",
-                       PSLV,
-                       false,	
-                       0,
-                       fCheckOverlaps);	 
+      auto PSScinLV = new G4LogicalVolume(PSScinSolid, PSScinMaterial, "Preshower_scin");
 
-    G4VisAttributes* PSScinVisAtt = new G4VisAttributes( G4Colour::Cyan() );
-    PSScinVisAtt->SetVisibility(true);
-    PSScinLV->SetVisAttributes( PSScinVisAtt );
-*/    
+      new G4PVPlacement( 0, 
+            G4ThreeVector(0.,0.,PSZ/4.),
+                        PSScinLV,
+                  "Preshower_scin",
+                        PSLV,
+                        false,	
+                        0,
+                        fCheckOverlaps);	 
+
+      G4VisAttributes* PSScinVisAtt = new G4VisAttributes( G4Colour::Cyan() );
+      PSScinVisAtt->SetVisibility(true);
+      PSScinLV->SetVisAttributes( PSScinVisAtt );
+      // End Preshower
+    }
+
+
+
+
 
     /********** Original leakage volume (sphere)  ***************/
     /*
@@ -600,16 +686,18 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     // Calorimeter placement (with rotation wrt beam axis)
     //
     G4RotationMatrix rotm  = G4RotationMatrix();
-    G4double xrot=2.5*deg;
-    G4double yrot=2.5*deg;
+    // Negative sign to make angles same as TB platform
+    G4double xrot = - fVerrot;
+    G4double yrot = + fOrzrot;
     rotm.rotateX(xrot);  
     rotm.rotateY(yrot);
+
     G4ThreeVector position;
-    G4double ycomp=-1090*mm*sin(xrot);
-    G4double xcomp=1090*mm*sin(yrot);
-    position.setX(xcomp);
-    position.setY(ycomp);
+
+    position.setX(fXshift);
+    position.setY(fYshift);
     position.setZ(0.);
+
     G4Transform3D transform = G4Transform3D(rotm,position); 
 
 
@@ -618,10 +706,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     //
     // comment for later introducing boolean variable
     // to include truth leakage counters (or not)
-    //if(TruthLeakageIn)
-    //{
-      //G4double leakradint=sqrt(caloX*caloX+caloY*caloY)*2.1;	// Added *1.2 wrt Giacomo's
-      //G4double leakradint=sqrt( (caloX+leakBoxX/2)*(caloX+leakBoxX/2)+(caloY+leakBoxZ/2)*(caloY+leakBoxZ/2));	// Added *1.2 wrt Giacomo's
+    if(TruthLeakageIn)
+    {
       G4double leakradint=sqrt( (caloBoxX)*(caloBoxX)+(caloBoxY)*(caloBoxY));	// Added *1.2 wrt Giacomo's
 
       G4double leakradout=leakradint+20*cm;
@@ -663,8 +749,6 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
       //leakageabsorberdLV->SetVisAttributes(invisibleAttr); 	// Default is uncommented
       leakageabsorberdLV->SetVisAttributes(G4VisAttributes::Invisible);
       G4ThreeVector positiond;
-      //positiond.setX(caloZ*sin(xrot)+xcomp);
-      //positiond.setY(-caloZ*sin(yrot)+ycomp);
       positiond.setX(caloBoxZ*sin(xrot));
       positiond.setY(-caloBoxZ*sin(yrot));
 
@@ -677,8 +761,7 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
                         false,
                         0,
                         fCheckOverlaps);
-
-    //}
+    } // end truth leak box
 
 
 
@@ -995,13 +1078,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
   G4String sideString[4] = {"up", "right", "down", "left"};
   G4RotationMatrix siderotm = rotm;
   siderotm.rotateZ(90*deg);
-  // temporary shifts until GeoMessenger is introduced
-  G4double fXshift=xcomp; 
-  G4double fYshift=ycomp;
-  // commented for now, introduce boolean variable
-  // in DREMTubesGeoPar.hh to include leakage counters (or not)
-  //if(LeakageCounterIn)
-  //{
+  if(LeakageCounterIn)
+  {
     for(int leakCounter = 0; leakCounter<NofLeakCounterLayers; leakCounter++)
     {
       //G4ThreeVector leakupPosition; leakupPosition.setX(fXshift); leakupPosition.setY(fYshift+caloY+leakBoxY+1.*cm); leakupPosition.setZ(-caloZ/2 - leakBoxZ/2 + leakBoxZ*leakCounter*2);
@@ -1062,7 +1140,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     tailCatcherBoxLV->SetVisAttributes(tailCatcherBoxVisAtt);
     //new G4PVPlacement(transform_tailCatcherBox, tailCatcherBoxLV, "tailCatcherBox", CalorimeterLV, false, 0, fCheckOverlaps);
     new G4PVPlacement(transform_tailCatcherBox, tailCatcherBoxLV, "leakbox", worldLV, false, 4*NofLeakCounterLayers, fCheckOverlaps);
-  //}
+  
+  }
 
 
 

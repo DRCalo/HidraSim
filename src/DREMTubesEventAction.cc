@@ -24,6 +24,8 @@
 //
 #include <iomanip>
 #include <vector>
+#include <numeric>
+
 
 //Define constructor
 //
@@ -96,10 +98,15 @@ void DREMTubesEventAction::EndOfEventAction(const G4Event* ) {
 
     //Add all p.e. in Scin and Cher fibers before calibration
     //
-    for (auto& n : VectorSignals) NofScinDet += n;
-    for (auto& n : VecSPMT) NofScinDet += n;
-    for (auto& n : VectorSignalsCher) NofCherDet += n;
-    for (auto& n : VecCPMT) NofCherDet += n;
+    NofScinDet = std::accumulate(VecSPMT.begin(),VecSPMT.end(),0);
+    NofCherDet = std::accumulate(VecCPMT.begin(),VecCPMT.end(),0);
+
+    G4int NofPheSciSiPM = std::accumulate(VectorSignals.begin(),VectorSignals.end(),0.);
+    G4int NofPheCerSiPM = std::accumulate(VectorSignalsCher.begin(),VectorSignalsCher.end(),0.);
+
+    // NofScinDet and NofCherDet take sum of photoelectrons deposited in PMT towers
+    // also those in the SiPM modules, as if they were readout with PMTs
+    // to add: sum separately photoelectrons in PMT and SiPM towers
 
     //Fill ntuple event by event
     //entries with vectors are automatically filled
@@ -111,12 +118,13 @@ void DREMTubesEventAction::EndOfEventAction(const G4Event* ) {
     analysisManager->FillNtupleDColumn(4, EnergyTot);
     analysisManager->FillNtupleDColumn(5, PrimaryParticleEnergy);
     analysisManager->FillNtupleIColumn(6, PrimaryPDGID);
-    //analysisManager->FillNtupleDColumn(7, EscapedEnergy);
     analysisManager->FillNtupleDColumn(7, EscapedEnergyl);
     analysisManager->FillNtupleDColumn(8, EscapedEnergyd);
     analysisManager->FillNtupleDColumn(9, PSEnergy);
     analysisManager->FillNtupleDColumn(10, PrimaryX);
     analysisManager->FillNtupleDColumn(11,PrimaryY);
+    analysisManager->FillNtupleDColumn(12,NofPheSciSiPM);
+    analysisManager->FillNtupleDColumn(13,NofPheCerSiPM);    
     analysisManager->AddNtupleRow();
     //Vector entries in ntuple are automatically filled
 

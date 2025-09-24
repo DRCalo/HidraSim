@@ -121,7 +121,12 @@ int main(int argc, char** argv) {
         UImanager->ApplyCommand(command+macro);
     }
     else  { //start UI session  
-    UImanager->ApplyCommand("/control/execute DREMTubes_init_vis.mac");
+    //UImanager->ApplyCommand("/control/execute DREMTubes_init_vis.mac");
+    //do not initialize run and visualization
+    //in main function; /tbgeo parameters should be
+    //initialized first.
+    //Instead intialize them and then type
+    //in GUI /control/execute DRTB23Sim_init_vis.mac
     if (ui->IsGUI()) {
       UImanager->ApplyCommand("/control/execute DREMTubes_gui.mac");
     }
