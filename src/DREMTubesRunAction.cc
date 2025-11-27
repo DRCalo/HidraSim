@@ -12,7 +12,8 @@
 
 //Includers from Geant4
 //
-#include "g4root.hh"
+//#include "g4root.hh"
+#include "G4AnalysisManager.hh"
 #include "G4Run.hh"
 #include "G4RunManager.hh"
 #include "G4UnitsTable.hh"
@@ -75,7 +76,7 @@ DREMTubesRunAction::~DREMTubesRunAction(){
    
     //Delete only instance of G4AnalysisManager
     //
-    delete G4AnalysisManager::Instance();  
+    //delete G4AnalysisManager::Instance();  
 
 }
 
@@ -91,7 +92,7 @@ void DREMTubesRunAction::BeginOfRunAction( const G4Run* Run )  {
     //
     auto analysisManager = G4AnalysisManager::Instance();
     std::string runnumber = std::to_string( Run->GetRunID() );
-    G4String outputfile = "DREMTubesout_Run"+runnumber;
+    G4String outputfile = "DREMTubesout_Run"+runnumber+".root";
     analysisManager->OpenFile( outputfile );
 
 }

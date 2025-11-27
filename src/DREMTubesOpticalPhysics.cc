@@ -18,22 +18,15 @@
 
 // Constructor
 //
-DREMTubesOpticalPhysics::DREMTubesOpticalPhysics(const G4bool FullOptic, G4bool toggle) 
+DREMTubesOpticalPhysics::DREMTubesOpticalPhysics() 
     : G4VPhysicsConstructor("Optical"),
-      fFullOptic( FullOptic ) {
-    
-    // Initialize private members
-    //
-    theWLSProcess                = NULL;
-    theScintProcess              = NULL;
-    theCerenkovProcess           = NULL;
-    theBoundaryProcess           = NULL;
-    theAbsorptionProcess         = NULL;
-    theRayleighScattering        = NULL;
-    theMieHGScatteringProcess    = NULL;
-    AbsorptionOn                 = toggle;
-
-}
+    theWLSProcess(nullptr),
+    theCerenkovProcess(nullptr),
+    theScintProcess(nullptr),
+    theRayleighScattering(nullptr),
+    theMieHGScatteringProcess(nullptr),
+    theBoundaryProcess(nullptr) {}
+   
 
 // De-constructor
 //
@@ -57,10 +50,10 @@ void DREMTubesOpticalPhysics::ConstructProcess() {
     //theWLSProcess->UseTimeProfile("exponential"); 
     
     theScintProcess             = new G4Scintillation();
-    theScintProcess->SetScintillationYieldFactor(1.);
+    //theScintProcess->SetScintillationYieldFactor(1.);
     //theScintProcess->SetTrackSecondariesFirst(true);
     //theScintProcess->SetScintillationYieldFactor(1.);
-    theScintProcess->SetScintillationExcitationRatio(0.0);
+    //theScintProcess->SetScintillationExcitationRatio(0.0);
     theScintProcess->SetTrackSecondariesFirst(true);
     // Use Birks Correction in the Scintillation process
     G4EmSaturation* emSaturation = G4LossTableManager::Instance()->EmSaturation();
@@ -77,7 +70,13 @@ void DREMTubesOpticalPhysics::ConstructProcess() {
     //theMieHGScatteringProcess = new G4OpMieHG();
     
     theBoundaryProcess          = new G4OpBoundaryProcess();
-   
+
+    auto opt = G4OpticalParameters::Instance();
+    //opt->SetScintYieldFactor(1.0);        // was SetScintillationYieldFactor(1.)
+    //opt->SetScintExcitationRatio(0.0);    // was SetScintillationExcitationRatio(0.)
+    opt->SetScintTrackSecondariesFirst(true); // was SetTrackSecondariesFirst(true)
+
+
     // Get optical photon process manager 
     //
     G4ProcessManager* pManager =
@@ -129,14 +128,14 @@ void DREMTubesOpticalPhysics::ConstructProcess() {
         // Add Scintillation process to each candidate
         // Adding Scintillation process only if fFullOptic == true
         //
-        if(theScintProcess->IsApplicable(*particle)){
-            if (fFullOptic) {
-                pManager->AddProcess(theScintProcess);
-                pManager->SetProcessOrderingToLast(theScintProcess,idxAtRest);
-                pManager->SetProcessOrderingToLast(theScintProcess,idxPostStep);
-            }
-            else {}
-        } 
+        //if(theScintProcess->IsApplicable(*particle)){
+        //    if (fFullOptic) {
+        //        pManager->AddProcess(theScintProcess);
+        //        pManager->SetProcessOrderingToLast(theScintProcess,idxAtRest);
+        //        pManager->SetProcessOrderingToLast(theScintProcess,idxPostStep);
+        //    }
+        //    else {}
+        //} 
     }//end while
 }
 
