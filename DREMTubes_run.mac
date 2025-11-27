@@ -1,6 +1,17 @@
 # Change the default number of workers (in multi-threading mode) 
 #/run/numberOfWorkers 4
 #
+# Select test-beam platform shift and rotation (with units)
+#
+# Module height: 28.3 mm; width: 128 mm
+# Default coordinates are set to shoot at T00 
+# (TB24) central tower
+#
+/tbgeo/xshift +61.20 mm
+/tbgeo/yshift +32.90 mm
+/tbgeo/horizrot 2.5 deg
+/tbgeo/vertrot 2.5 deg
+#
 # Initialize kernel
 /run/initialize
 #
@@ -8,11 +19,11 @@
 #
 #/run/printProgress 500
 /gps/particle e-
-/gps/energy 0.5 GeV
+/gps/energy 20 GeV
 /gps/direction 0 0 1
-/gps/position 0 0 -55
+/gps/position 0 0 -350 cm
 /gps/pos/shape Circle
-/gps/pos/radius 0.01 cm
+/gps/pos/radius 1 cm
 /random/setSeeds 1.2 2.5
 #
 /run/beamOn 100
