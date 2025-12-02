@@ -1,3 +1,8 @@
+const double sq3=1.733;
+const double sq3m1=sq3/3.;
+const double tuberadius = 1.0;
+
+
 /*    const int NofmodulesX = 24;
     const int NofmodulesY = 5;
     const int modflag[120]={-1,-1,-1,-1,-1,-1,-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,-1,
@@ -44,3 +49,12 @@ const bool irot=false;
 const int NoFibersTower=NofFiberscolumn*NofFibersrow/2;
 
 
+
+
+const int NofSciSiPM=(NofFibersrow*NofFiberscolumn*NoModulesSiPM)/2;
+const int NofCerSiPM=(NofFibersrow*NofFiberscolumn*NoModulesSiPM)/2;
+
+double dtubeY=sq3*tuberadius;                                       // dtubeY given in simulation before rotation
+double dtubeX=2.*tuberadius;                                        // For the reconstruction they must be inverted
+double moduleX = (2*NofFiberscolumn+1)*tuberadius;
+double moduleY = (NofFibersrow-1.)*dtubeY+4.*tuberadius*sq3m1;

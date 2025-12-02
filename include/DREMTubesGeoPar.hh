@@ -9,7 +9,7 @@
 const G4int NofLeakCounterLayers = 4;
 const G4bool PreShowerIn = false;
 const G4bool LeakageCounterIn = true;
-const G4bool TruthLeakageIn = true;
+const G4bool TruthLeakageIn = false;
 
 
 

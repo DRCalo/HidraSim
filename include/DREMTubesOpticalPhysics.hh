@@ -21,13 +21,17 @@
 #include "G4OpAbsorption.hh"
 #include "G4OpBoundaryProcess.hh"
 #include "G4VPhysicsConstructor.hh"
+#include "G4OpticalParameters.hh"
+
 
 class DREMTubesOpticalPhysics : public G4VPhysicsConstructor {
     
     public: 
         // Constructor
         //
-        DREMTubesOpticalPhysics( const G4bool FullOptic, G4bool toggle=true);
+        //DREMTubesOpticalPhysics( const G4bool FullOptic, G4bool toggle=true);
+        DREMTubesOpticalPhysics();
+
         // Deconstructor
         //
         virtual ~DREMTubesOpticalPhysics();
@@ -37,13 +41,13 @@ class DREMTubesOpticalPhysics : public G4VPhysicsConstructor {
    
         // Getters for processes
         //
-        G4OpWLS* GetWLSProcess() {return theWLSProcess;}
-        G4Cerenkov* GetCerenkovProcess() {return theCerenkovProcess;}
-        G4Scintillation* GetScintillationProcess() {return theScintProcess;}
-        G4OpAbsorption* GetAbsorptionProcess() {return theAbsorptionProcess;}
-        G4OpRayleigh* GetRayleighScatteringProcess() {return theRayleighScattering;}
-        G4OpMieHG* GetMieHGScatteringProcess() {return theMieHGScatteringProcess;}
-        G4OpBoundaryProcess* GetBoundaryProcess() { return theBoundaryProcess;}
+        //G4OpWLS* GetWLSProcess() {return theWLSProcess;}
+        //G4Cerenkov* GetCerenkovProcess() {return theCerenkovProcess;}
+        //G4Scintillation* GetScintillationProcess() {return theScintProcess;}
+        //G4OpAbsorption* GetAbsorptionProcess() {return theAbsorptionProcess;}
+        //G4OpRayleigh* GetRayleighScatteringProcess() {return theRayleighScattering;}
+        //G4OpMieHG* GetMieHGScatteringProcess() {return theMieHGScatteringProcess;}
+        //G4OpBoundaryProcess* GetBoundaryProcess() { return theBoundaryProcess;}
     
     private:
     

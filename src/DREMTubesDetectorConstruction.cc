@@ -229,6 +229,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     G4Material* CladCherMaterial = G4Material::GetMaterial("Fluorinated_Polymer");
     G4Material* LeakCounterScinMaterial = nistManager->FindOrBuildMaterial("G4_POLYSTYRENE");
 
+    auto invisibleAttr = new G4VisAttributes();
+    invisibleAttr->SetVisibility(false);
+
     //--------------------------------------------------
     //Define Optical Properties
     //--------------------------------------------------
@@ -269,8 +272,10 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
           400*cm, 400*cm, 400*cm, 400*cm };*/
 
     G4MaterialPropertiesTable *MPTScin = new G4MaterialPropertiesTable();
-    MPTScin -> AddProperty("RINDEX", 
-        photonEnergy, rindexScin, ENTRIES)->SetSpline(true);
+    MPTScin -> AddProperty("RINDEX", photonEnergy, rindexScin, true);
+    MPTScin->AddConstProperty("SCINTILLATIONYIELD", 1.0, true);   // to geant4.11
+    MPTScin->AddConstProperty("EXCITATIONRATIO", 0.0, true);
+
     /*MPTScin -> AddProperty("ABSLENGTH",
          photonEnergy, absorptionScin, ENTRIES)->SetSpline(true);*/
 
@@ -294,8 +299,7 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
           890*cm, 890*cm, 890*cm, 890*cm };*/
 
     G4MaterialPropertiesTable *MPTCher = new G4MaterialPropertiesTable();
-    MPTCher -> AddProperty("RINDEX",
-            photonEnergy, rindexCher, ENTRIES)->SetSpline(true);
+    MPTCher -> AddProperty("RINDEX", photonEnergy, rindexCher, ENTRIES, true);
     /*MPTCher -> AddProperty("ABSLENGTH", 
             photonEnergy, absorptionCher, ENTRIES)->SetSpline(true);*/
     CherMaterial -> SetMaterialPropertiesTable(MPTCher);
@@ -311,8 +315,7 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
           1.42, 1.42, 1.42, 1.42 };
 
     G4MaterialPropertiesTable *MPTCherclad = new G4MaterialPropertiesTable();
-    MPTCherclad -> AddProperty("RINDEX", 
-        photonEnergy, rindexCherclad, ENTRIES)->SetSpline(true);
+    MPTCherclad -> AddProperty("RINDEX", photonEnergy, rindexCherclad, ENTRIES, true);
     CladCherMaterial -> SetMaterialPropertiesTable(MPTCherclad);
 
     G4double rindexglass[ENTRIES] =
@@ -326,8 +329,7 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
           1.51, 1.51, 1.51, 1.51 };
 
     G4MaterialPropertiesTable *MPTglass = new G4MaterialPropertiesTable();
-    MPTglass -> AddProperty("RINDEX", 
-            photonEnergy, rindexglass, ENTRIES)->SetSpline(true);
+    MPTglass -> AddProperty("RINDEX", photonEnergy, rindexglass, ENTRIES, true);
     GlassMaterial -> SetMaterialPropertiesTable(MPTglass);
 
     G4double rindexSi[ENTRIES] =
@@ -351,9 +353,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
           0.001*mm, 0.001*mm, 0.001*mm, 0.001*mm };
 
     G4MaterialPropertiesTable *MPTSi = new G4MaterialPropertiesTable();
-    MPTSi -> AddProperty("RINDEX", photonEnergy, rindexSi, ENTRIES)->SetSpline(true);
-    MPTSi -> AddProperty("ABSLENGHT", 
-        photonEnergy, absorptionSi, ENTRIES)->SetSpline(true);
+    MPTSi -> AddProperty("RINDEX", photonEnergy, rindexSi, ENTRIES, true);
+    MPTSi -> AddProperty("ABSLENGHT", photonEnergy, absorptionSi, ENTRIES, true);
     SiMaterial -> SetMaterialPropertiesTable(MPTSi); 
   
     // Scintillating proprieties of the scintillating fiber material
@@ -380,15 +381,16 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
 
     ScinMaterial->GetIonisation()->SetBirksConstant(0.126*mm/MeV);
 
-    MPTScin -> AddProperty("FASTCOMPONENT", photonEnergy, Scin_FAST, ENTRIES);
-    MPTScin -> AddProperty("SLOWCOMPONENT", photonEnergy, Scin_SLOW, ENTRIES);
-    MPTScin -> AddConstProperty("SCINTILLATIONYIELD", 10000./MeV); 
+    MPTScin -> AddProperty("FASTCOMPONENT", photonEnergy, Scin_FAST, ENTRIES, true);
+    MPTScin -> AddProperty("SLOWCOMPONENT", photonEnergy, Scin_SLOW, ENTRIES, true);
+    MPTScin -> AddConstProperty("SCINTILLATIONYIELD", 10000./MeV, true); 
     // Typical is 10000./MeV (this is what makes full simulations long as hell)
-    MPTScin -> AddConstProperty("RESOLUTIONSCALE", 1.0); 
+    MPTScin->AddConstProperty("EXCITATIONRATIO", 0.0, true);
+    MPTScin -> AddConstProperty("RESOLUTIONSCALE", 1.0, true); 
     // Broad the fluctuation of photons produced
-    MPTScin -> AddConstProperty("FASTTIMECONSTANT", 2.8*ns);
-    MPTScin -> AddConstProperty("SLOWTIMECONSTANT", 10.*ns);
-    MPTScin -> AddConstProperty("YIELDRATIO", 1.0); 
+    MPTScin -> AddConstProperty("FASTTIMECONSTANT", 2.8*ns, true);
+    MPTScin -> AddConstProperty("SLOWTIMECONSTANT", 10.*ns, true);
+    MPTScin -> AddConstProperty("YIELDRATIO", 1.0, true); 
     // I don't want a slow component, if you want it must change
     ScinMaterial -> SetMaterialPropertiesTable(MPTScin);
 
@@ -498,7 +500,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
                                                    defaultMaterial, 
                                                    "World");       
   
-    worldLV->SetVisAttributes(G4VisAttributes::Invisible);
+    //worldLV->SetVisAttributes(G4VisAttributes::Invisible);
+    worldLV->SetVisAttributes(invisibleAttr);
+
 
     fWorldPV = new G4PVPlacement( 0,                // no rotation
                                   G4ThreeVector(),  // at (0,0,0)
@@ -723,9 +727,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
       LkVisAttl->SetVisibility(true);
       LkVisAttl->SetForceWireframe(true);
       LkVisAttl->SetForceSolid(true);
-      leakageabsorberlLV->SetVisAttributes(LkVisAttl);
-      //leakageabsorberlLV->SetVisAttributes(invisibleAttr); 	// Default is uncommented
-      leakageabsorberlLV->SetVisAttributes(G4VisAttributes::Invisible);
+      //leakageabsorberlLV->SetVisAttributes(LkVisAttl);
+      leakageabsorberlLV->SetVisAttributes(invisibleAttr); 
+      //leakageabsorberlLV->SetVisAttributes(G4VisAttributes::Invisible);
 
       new G4PVPlacement( transform,
               leakageabsorberlLV,         
@@ -745,9 +749,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
       LkVisAttd->SetVisibility(true);
       LkVisAttd->SetForceWireframe(true);
       LkVisAttd->SetForceSolid(true);
-      leakageabsorberdLV->SetVisAttributes(LkVisAttd);
-      //leakageabsorberdLV->SetVisAttributes(invisibleAttr); 	// Default is uncommented
-      leakageabsorberdLV->SetVisAttributes(G4VisAttributes::Invisible);
+      //leakageabsorberdLV->SetVisAttributes(LkVisAttd);
+      leakageabsorberdLV->SetVisAttributes(invisibleAttr);
+      //leakageabsorberdLV->SetVisAttributes(G4VisAttributes::Invisible);
       G4ThreeVector positiond;
       positiond.setX(caloBoxZ*sin(xrot));
       positiond.setY(-caloBoxZ*sin(yrot));
@@ -856,10 +860,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
                                       0., 0., 0., 0. };
 
     G4MaterialPropertiesTable* MPTOpSurfaceGlassSi = new G4MaterialPropertiesTable();
-    MPTOpSurfaceGlassSi -> AddProperty("EFFICIENCY", 
-        photonEnergy, efficiencyOpSurfaceGlassSi, ENTRIES)->SetSpline(true);
-    MPTOpSurfaceGlassSi -> AddProperty("REFLECTIVITY", 
-            photonEnergy, reflectivityOpSurfaceGlassSi, ENTRIES)->SetSpline(true);
+    MPTOpSurfaceGlassSi -> AddProperty("EFFICIENCY", photonEnergy, efficiencyOpSurfaceGlassSi, ENTRIES, true);
+    MPTOpSurfaceGlassSi -> AddProperty("REFLECTIVITY", photonEnergy, reflectivityOpSurfaceGlassSi, ENTRIES, true);
     OpSurfaceGlassSi -> SetMaterialPropertiesTable(MPTOpSurfaceGlassSi);
 
     // SiPM
@@ -1174,6 +1176,10 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     G4double claddingradiusmin, G4double claddingradiusmax, G4double claddingZ,
     G4Material* CherMaterial){
   
+
+    auto invisibleAttr = new G4VisAttributes();
+    invisibleAttr->SetVisibility(false);
+   
     std::random_device rd;  //Will be used to obtain a seed for the random number engine
     std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()m
     std::uniform_real_distribution<> dis(0.0, tolerance);
@@ -1187,8 +1193,10 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     G4LogicalVolume* logic_S_fiber = new G4LogicalVolume(S_fiber,
                                                          absorberMaterial,
                                                          "S_fiber");
-    logic_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
-	
+    //logic_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_S_fiber->SetVisAttributes(invisibleAttr);
+
+
     G4Tubs* Abs_S_fiber = new G4Tubs("Abs_Scin_fiber", claddingradiusmax, tuberadius, fiberZ/2,0.,2.*pi);
 
     G4LogicalVolume* logic_Abs_S_fiber = new G4LogicalVolume(Abs_S_fiber,
@@ -1214,8 +1222,10 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     ScincoreVisAtt->SetVisibility(true);
     ScincoreVisAtt->SetForceWireframe(true);
     ScincoreVisAtt->SetForceSolid(true);
-    logic_Core_S_fiber->SetVisAttributes(ScincoreVisAtt);
-    logic_Core_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Core_S_fiber->SetVisAttributes(ScincoreVisAtt);
+    //logic_Core_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Core_S_fiber->SetVisAttributes(invisibleAttr);
+
     G4ThreeVector vec_Core_S;
     vec_Core_S.setX(0.);
     vec_Core_S.setY(0.);
@@ -1244,7 +1254,9 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructscinfiber(double tolera
     ScincladVisAtt->SetForceWireframe(true);
     ScincladVisAtt->SetForceSolid(true);
     logic_Clad_S_fiber->SetVisAttributes(ScincladVisAtt);
-    logic_Clad_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Clad_S_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Clad_S_fiber->SetVisAttributes(invisibleAttr);
+
 
     G4ThreeVector vec_Clad_S;
     vec_Clad_S.setX(0.);
@@ -1280,6 +1292,10 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     G4double claddingradiusmin, G4double claddingradiusmax, G4double claddingZ, 
     G4Material* CladCherMaterial){ 
  
+
+
+    auto invisibleAttr = new G4VisAttributes();
+    invisibleAttr->SetVisibility(false);
     std::random_device rd;  //Will be used to obtain a seed for the random number engine
     std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()m
     std::uniform_real_distribution<> dis(0.0, tolerance);
@@ -1292,7 +1308,9 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
                                                          absorberMaterial,
                                                          "C_fiber");
 
-    logic_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_C_fiber->SetVisAttributes(invisibleAttr);
+
     G4Tubs* Abs_C_fiber = new G4Tubs("Abs_Cher_fiber", claddingradiusmax, tuberadius, fiberZ/2,0.,2.*pi);
 
     G4LogicalVolume* logic_Abs_C_fiber = new G4LogicalVolume(Abs_C_fiber,
@@ -1318,7 +1336,9 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     ChercoreVisAtt->SetForceWireframe(true);
     ChercoreVisAtt->SetForceSolid(true);
     logic_Core_C_fiber->SetVisAttributes(ChercoreVisAtt);
-    logic_Core_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Core_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Core_C_fiber->SetVisAttributes(invisibleAttr);
+
     G4ThreeVector vec_Core_C;
     vec_Core_C.setX(0.);
     vec_Core_C.setY(0.);
@@ -1346,7 +1366,8 @@ G4LogicalVolume* DREMTubesDetectorConstruction::constructcherfiber(double tolera
     ChercladVisAtt->SetForceWireframe(true);
     ChercladVisAtt->SetForceSolid(true);
     logic_Clad_C_fiber->SetVisAttributes(ChercladVisAtt);
-    logic_Clad_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    //logic_Clad_C_fiber->SetVisAttributes(G4VisAttributes::Invisible);
+    logic_Clad_C_fiber->SetVisAttributes(invisibleAttr);
 
     G4ThreeVector vec_Clad_C;
     vec_Clad_C.setX(0.);

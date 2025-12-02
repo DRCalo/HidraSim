@@ -60,7 +60,8 @@ DREMTubesPhysicsList::DREMTubesPhysicsList(G4String physName, const G4bool FullO
     // Turn on and off the absorption of optical photons in materials
     // 
     AbsorptionOn = true;
-    RegisterPhysics( OpPhysics = new DREMTubesOpticalPhysics(fFullOptic, AbsorptionOn) );
+    //RegisterPhysics( OpPhysics = new DREMTubesOpticalPhysics(fFullOptic, AbsorptionOn) );
+    RegisterPhysics( OpPhysics = new DREMTubesOpticalPhysics() );
     
 }
 

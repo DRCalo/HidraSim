@@ -35,13 +35,13 @@
 
 <!--Project desription-->
 ## Project description
-The project targets a standalone Geant4 simulation of the Dual-Readout electromagnetic-sized 2020 tubes prototype beam tests. We plan to perform Geant4 regression testing, physics lists comparison and validation against test-beam data. 
+The project targets a standalone Geant4 simulation of the Dual-Readout tubes-based calorimeter prototype beam tests. We plan to perform Geant4 regression testing, physics lists comparison and validation against test-beam data. 
 - Start date: 7 July 2021.
 
 <!--Authors and contacts-->
 ## Authors and contacts
 - (CERN EP-SFT) Lorenzo Pezzotti (lorenzo.pezzotti@cern.ch), Alberto Ribon (Supervisor)
-- (University of Pavia and INFN Pavia) Jinky Agarwala, Gabriella Gaudio
+- (University of Pavia and INFN Pavia) Andrea Pareti, Gabriella Gaudio
 
 <!--Documentation and results-->
 ## Documentation and results
@@ -62,52 +62,58 @@ The project targets a standalone Geant4 simulation of the Dual-Readout electroma
 <!--How to:-->
 ## How to
 
+### Rotate and shift calorimeter
+Note: the test-beam simulated platform can be shifted in x and y directions as in the actual configuration. The platform can also rotate around its center (the horizontal rotation). The housing containing the calorimeter can the lifted up from its back side creating a spin around its front face (the vertical rotation). By default, such parameters are set to zero. They are configurable via the UI macro card before the run is initialized as:
+   ```
+   /tbgeo/xshift <> [<Unit>]
+   /tbgeo/yshift <> [<Unit>]
+   /tbgeo/horizrot <> [<Unit>]
+   /tbgeo/vertrot <> [<Unit>]
+   ```
+
 ### Build, compile and execute on Mac/Linux
 1. git clone the repo
    ```sh
-   git clone https://github.com/lopezzot/DREMTubes.git
+   git clone https://github.com/DRCalo/HidraSim.git
    ```
 2. source Geant4 env
    ```sh
-   source /relative_path_to/geant4.10.07_p01-install/bin/geant4.sh
+   source /relative_path_to/geant4-v11.3.1-install/bin/geant4.sh
    ```
-3. cmake build directory and make (using geant4.10.07_p01)
+3. cmake build directory and make (using geant4-v11.3.1)
    ```sh
-   mkdir DREMTubes-build; cd DREMTubes-build/
-   cmake -DGeant4_DIR=/absolute_path_to/geant4.10.07_p01-install/lib/Geant4-10.7.1/ relative_path_to/DREMTubes/
+   mkdir build; cd build/
+   cmake -DGeant4_DIR=/absolute_path_to/geant4-v11.3.1-install/lib64/Geant4-11.3.1/ relative_path_to/DREMTubes/
    make
    ```
 4. execute (example with DREMTubes_run.mac macro card, 2 thread, FTFP_BERT physics list and no optical propagation)
    ```sh
-   ./DREMTubes -m DREMTubes_run.mac -t 2 -pl FTFP_BERT -opt false
+   ./DREMTubes -m DREMTubes_run.mac -t 2 -pl FTFP_BERT
    ```
 Parser options
    * -m macro.mac: pass a Geant4 macro card (example -m DREMTubes_run.mac available in source directory and automatically copied in build directory) 
    * -t integer: pass number of threads for multi-thread execution (example -t 3, default t=2)
    * -pl Physics_List: select Geant4 physics list (example -pl FTFP_BERT)
-   * -opt FullOptic: boolean variable to switch on (true) the optical photon propagation in fibers (example -opt true, default false)
+   * -opt FullOptic: boolean variable to switch on (true) the optical photon propagation in fibers (example -opt true, default false) -> NOTE: Not available any longer
 
-### Build, compile and execute on lxplus
+### Build, compile and execute on lxplus and machines with CVMFS (ALMA9)
 1. git clone the repo
    ```sh
-   git clone git clone https://github.com/lopezzot/DREMTubes.git
+   git clone git clone https://github.com/DRCalo/HidraSim.git
    ```
-2. cmake, build directory and make (using geant4.10.07_p01, check for gcc and cmake dependencies for other versions)
+2. cmake, build directory and make (using geant4-v11.3.1, check for gcc and cmake dependencies for other versions)
    ```sh
-   mkdir DREMTubes-build; cd DREMTubes-build/
-   source /cvmfs/sft.cern.ch/lcg/contrib/gcc/8.3.0/x86_64-centos7/setup.sh 
-   source /cvmfs/geant4.cern.ch/geant4/10.7.p01/x86_64-centos7-gcc8-optdeb-MT/CMake-setup.sh 
-   export CXX=`which g++`
-   export CC=`which gcc`
-   cmake3 -DGeant4_DIR= /cvmfs/geant4.cern.ch/geant4/10.7.p01/x86_64-centos7-gcc8-optdeb-MT/lib64/Geant4-10.7.1 ../../DREMTubes/
-   make
+   mkdir build; cd build/
+   source /cvmfs/sft.cern.ch/lcg/views/LCG_106b/x86_64-el9-gcc11-opt/setup.sh
+   cmake3 -DGeant4_DIR=/cvmfs/geant4.cern.ch/geant4/11.3/x86_64-el9-gcc11-optdeb-MT/lib64/Geant4-11.3.0/ ../
+   make (-jN)
    ```
 3. execute (example with DREMTubes_run.mac macro card, 2 threads and FTFP_BERT physics list)
    ```sh
    ./DREMTubes -m DREMTubes_run.mac -t 2 -pl FTFP_BERT
    ```
    
-### Submit a job with HTCondor on lxplus
+### Submit a job with HTCondor on lxplus -> To be tested after Geant4-11
 1. git clone the repo
    ```sh
    git clone https://github.com/lopezzot/DREMTubes.git
