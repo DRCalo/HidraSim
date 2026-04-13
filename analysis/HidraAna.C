@@ -42,13 +42,15 @@ void GetSiPMcoordinate(int TowID, int rowID, int colID_original, double &SiPM_X,
     double colID = (static_cast<double>(grouping)-1)/2 + channel*grouping;
     
     if(fiber == "S"){                                                         
+        //SiPM_X = +moduleX/2 - tuberadius - (tuberadius*2)*colID;
+        //SiPM_Y = -moduleY/2 + tuberadius + (sq3*tuberadius)*rowID+tuberadius*(2.*sq3m1-1.);
         SiPM_X = +moduleX/2 - tuberadius - (tuberadius*2)*colID;
-        SiPM_Y = -moduleY/2 + tuberadius + (sq3*tuberadius)*rowID+tuberadius*(2.*sq3m1-1.);
+        SiPM_Y = -moduleY/2 + tuberadius + (sq3*tuberadius)*rowID+tuberadius*(2.*sq3m1-1.);        
         //std::cout << "S X: " << SiPM_X << " Y: " << SiPM_Y << std::endl;
     }    
 
     if(fiber == "C"){                                                         
-        SiPM_X = +moduleX/2 - tuberadius - tuberadius - (tuberadius*2)*colID ;
+        SiPM_X = +moduleX/2 + tuberadius - (tuberadius*2)*colID ;
         SiPM_Y = -moduleY/2 + tuberadius + (sq3*tuberadius)*rowID+tuberadius*(2.*sq3m1-1.);
         //std::cout << "C X: " << SiPM_X << " Y: " << SiPM_Y << std::endl;
     }
@@ -172,7 +174,9 @@ void HidraAna(double energy, const string intup){
       //SipmMapS->Fill( modcol[towID]*NofFiberscolumn + colID, modrow[towID]*NofFibersrow+rowID, content); 
       SipmMapS->Fill( colID, towID*NofFibersrow+rowID, content); 
       SciSiPMCoordinates->Fill(SiPM_X, SiPM_Y, content);
+      std::cout << "S channel: " << "x: " << SiPM_X << "\t y: " << SiPM_Y << "\t content: " << content << std::endl;
     }
+
 
    for(unsigned int N=0; N<CSiPM->size(); N++){        // Loop over SiPMs - S Fibers
       double content = CSiPM->at(N)/cerPheGeV;
@@ -185,6 +189,7 @@ void HidraAna(double energy, const string intup){
       double SiPM_X, SiPM_Y;
       GetSiPMcoordinate(towID, rowID, colID, SiPM_X, SiPM_Y, "C", grouping);
       CerSiPMCoordinates->Fill(SiPM_X, SiPM_Y, content);     
+      std::cout << "C channel: " << "x: " << SiPM_X << "\t y: " << SiPM_Y << "\t content: " << content << std::endl;
 
     }
 
@@ -196,7 +201,7 @@ void HidraAna(double energy, const string intup){
     leakene->Fill(lenergy/1000/energy);   
     chidist->Fill((totsci-ecalo)/(totcer-ecalo));    
     //std::cout << "totSci: " << totsci << "\t totCer: " << totcer << std::endl;
-    //break;
+    break;
   }
   
 
