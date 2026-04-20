@@ -11,16 +11,29 @@ import ROOT
 ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
 
+#scaling_s = 1.07
+#scaling_c = 1.05
+
 #scaling_s = 1.16
 #scaling_c = 1.255
-scaling_s = 1.125
-scaling_c = 1.155
-myOutDir = "plots/Attenuation7m_2phe"
-extraTex2 = "Fibre attenuation set to 10m" 
-#myOutDir = "plots/AttenuationTB24_2phe"
-extraTex1 = "Min visible signal: >= 2 phe"
-#extraTex2 = "Fibre attenuation tuned to TB24 data: 3.7 m (Sci), 3.9 m (Cer)" 
-extraTex3 = "Correction for multiple photons on the same SiPM cell: OFF"
+
+scaling_s = 1.14
+scaling_c = 1.27
+
+#myOutDir = "plots/Attenuation7m_2phe"
+myOutDir = "plots/AttenuationTB24"
+
+#extraTex2 = "Fibre attenuation set to 10m" 
+extraTex2 = "Fibre attenuation tuned to TB24 data: 3.7 m (Sci), 3.9 m (Cer)" 
+
+extraTex1 = "TB25 HG data used for tuning channel noise"
+#extraTex1 = "No noise"
+
+extraTex5 = "Correction for multiple photons on the same SiPM cell: ON"
+#extraTex5 = " "
+
+extraTex4 = "Poissonian probability to lose phe per channel: #mu = 3 (Sci), 3 (Cer)"
+#extraTex4 = " "
 
 def load_summary(csv_path: str) -> pd.DataFrame:
     data = pd.read_csv(csv_path)
@@ -372,7 +385,7 @@ def plot_energy_linearity(data: pd.DataFrame, out_dir: str):
     tex1.SetTextSize(0.042);
     tex1.SetLineWidth(2);
     tex1.Draw("same");	
-    tex2 = ROOT.TLatex(alignLeft,alignTop-0.04, extraTex2)
+    tex2 = ROOT.TLatex(alignLeft,alignTop-0.12, extraTex2)
     tex2.SetNDC();
     tex2.SetTextFont(42);
     tex2.SetTextSize(0.03);
@@ -384,6 +397,18 @@ def plot_energy_linearity(data: pd.DataFrame, out_dir: str):
     tex3.SetTextSize(0.03);
     tex3.SetLineWidth(2);
     tex3.Draw("same");	
+    tex4 = ROOT.TLatex(alignLeft,alignTop-0.04, extraTex4)
+    tex4.SetNDC();
+    tex4.SetTextFont(42);
+    tex4.SetTextSize(0.03);
+    tex4.SetLineWidth(2);
+    tex4.Draw("same");	
+    tex5 = ROOT.TLatex(alignLeft,alignTop-0.16, extraTex5)
+    tex5.SetNDC();
+    tex5.SetTextFont(42);
+    tex5.SetTextSize(0.03);
+    tex5.SetLineWidth(2);
+    tex5.Draw("same");	
 
 
     legend = ROOT.TLegend(0.450, 0.17, 0.83, 0.37)
