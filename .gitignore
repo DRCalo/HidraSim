@@ -1,3 +1,4 @@
 build/
 *.root
 analysis/*.root
+.devcontainer/.env

@@ -1,0 +1,35 @@
+{
+	"name": "HidraSim Geant4 DevContainer",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "geant4",
+	"runServices": [
+		"geant4"
+	],
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {}
+	},
+	"workspaceFolder": "/workspace",
+	"shutdownAction": "stopCompose",
+	"initializeCommand": "${localWorkspaceFolder}/.devcontainer/init-host.sh",
+	"postCreateCommand": "mkdir -p /opt/geant4/data && /opt/geant4/bin/geant4-config --install-datasets && if ! grep -q 'terminal-welcome.sh' ~/.bashrc; then echo -e '\n# Show dev container welcome only for interactive shells\nif [[ $- == *i* ]] && [ -f /workspace/.devcontainer/terminal-welcome.sh ]; then\n  bash /workspace/.devcontainer/terminal-welcome.sh\nfi' >> ~/.bashrc; fi",
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.profiles.linux": {
+					"HidraSim Bash": {
+						"path": "/bin/bash",
+						"args": [
+							"-lc",
+							"bash /workspace/.devcontainer/terminal-welcome.sh; exec bash"
+						]
+					}
+				},
+				"terminal.integrated.defaultProfile.linux": "HidraSim Bash"
+			},
+			"extensions": [
+				"ms-vscode.cpptools",
+				"ms-vscode.cmake-tools"
+			]
+		}
+	}
+}
