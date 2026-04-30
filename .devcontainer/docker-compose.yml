@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  xeyes:
+    image: "carlomt/xeyes"
+    stdin_open: true
+    tty: true
+    environment:
+      - DISPLAY=${DOCKERDISPLAY}
+    volumes:
+      - X11-unix:/tmp/.X11-unix
+
+  gears:
+    image: "carlomt/gears"
+    stdin_open: true
+    tty: true
+    environment:
+      - DISPLAY=${DOCKERDISPLAY}
+    volumes:
+      - X11-unix:/tmp/.X11-unix
+
+  geant4:
+    image: "carlomt/geant4:latest"
+    stdin_open: true
+    tty: true
+    command: sleep infinity
+    volumes:
+      - geant4-datasets:/opt/geant4/data:rw
+      - ..:/workspace:cached
+
+  geant4-gui:
+    image: "carlomt/geant4:latest-gui"
+    stdin_open: true
+    tty: true
+    environment:
+      - DISPLAY=${DOCKERDISPLAY}
+    volumes:
+      - X11-unix:/tmp/.X11-unix
+      - geant4-datasets:/opt/geant4/data:rw
+      - ..:/workspace:cached
+
+  prepare:
+    image: "carlomt/geant4:latest"
+    command: >
+      /bin/bash -lc "/opt/geant4/bin/geant4-config --install-datasets"
+    stdin_open: true
+    tty: true
+    volumes:
+      - geant4-datasets:/opt/geant4/data:rw
+
+volumes:
+  geant4-datasets:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "${GEANT4_DATASETS_HOST_PATH}"
+
+  X11-unix:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "${X11FOLDER}"

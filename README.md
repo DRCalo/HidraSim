@@ -112,7 +112,29 @@ Parser options
    ```sh
    ./DREMTubes -m DREMTubes_run.mac -t 2 -pl FTFP_BERT
    ```
-   
+
+### Build, compile and execute on local machine using vscode devcontainer
+
+1. git clone the repo
+   ```sh
+   git clone https://github.com/lopezzot/DREMTubes.git
+   cd DREMTubes
+   ```
+
+2. configure `.env` file
+   ```sh
+   cp .devcontainer/.env.example .devcontainer/.env
+   ```
+   in this new file edit the `GEANT4_DATASETS_HOST_PATH` variable with the path on your local machine where you want to store the Geant4 datasets (example: `GEANT4_DATASETS_HOST_PATH=$HOME/geant4-datasets`).
+
+3. open the folder with vscode and open the devcontainer
+   ```sh
+   code .
+   ```
+   and click on "Reopen in container" when prompted, or open the command palette and search for "Dev Containers: Reopen in Container". This will build the docker image and start the container.
+
+At this point you have an environment set up with Geant4 and all the needed dependencies. You should follow instructions in the terminal to build and execute the code.
+
 ### Submit a job with HTCondor on lxplus -> To be tested after Geant4-11
 1. git clone the repo
    ```sh
