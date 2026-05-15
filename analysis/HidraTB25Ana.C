@@ -1,5 +1,3 @@
-// file: HidraTB25Ana.C
-
 #include <TTree.h>
 #include <TFile.h>
 #include <TDirectory.h>
@@ -20,6 +18,7 @@
 #include <iomanip>
 #include <cmath>
 #include <limits>
+#include <algorithm>
 #include <nlohmann/json.hpp>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -32,23 +31,20 @@
 
 using json = nlohmann::json;
 
-// Global Constants and parameters
-//
-// Minimum visible signal per channel (>=)
-// Set to 0.0 or 1.0 to disable the cut.
-const double MinVisiblePheS = 0.0; // photoelectrons
-const double MinVisiblePheC = 0.0; // photoelectrons
+// -----------------------------------------------------------------------------
+// Global constants and parameters
+// -----------------------------------------------------------------------------
 
-// Scintillator on even rows (start from 0), Cerenkov on odd rows
+const double MinVisiblePheS = 0.0;
+const double MinVisiblePheC = 0.0;
+
 const unsigned int grouping = 8;
-// Write event display every N entries (0 to disable)
 const unsigned int EventDisplayEvery = 100;
-// A FERS is ON if at least 2 smeared channels across S or C (both are good) are above that FERS threshold.
 const unsigned int FersMultiplicity = 2;
 
 const double chi = 0.38;
 const double sciPheGeV = 119.001; // tb24
-const double cerPheGeV = 29.4;    // tb24
+const double cerPheGeV = 29.4;  // tb24
 //const double sciPheGeV = 178.501;
 //const double cerPheGeV = 43;
 
@@ -60,26 +56,78 @@ const double cer_pde = 0.38;
 const double elcont = 1.005;
 const double picont = 1.028;
 
-// Separate fallback noise sigmas for S and C
-const unsigned int NoiseRandomSeed = 12345; // fixed seed for reproducibility
 
-// In this parametrised simulation, rawPhe is stored as "impinging optical photons"
-// To account for multiple photons impinging on the same SiPM cell,
-// we apply saturation correction to get "fired cells", which is the actual observable.
+enum class NoiseCorrelationMode {
+  UncorrelatedByChannel,
+  CorrelatedWithinFers
+};
+
+enum class NoiseDistributionMode {
+  Gaussian,
+  LogNormal
+};
+
+/////////////////////////////////////////////////////////
+// Paremeters for changing simulation behaviour
 const bool ApplySaturation = true;
-//
-const bool ApplyTbNoise = true;
-// decide whether to print per-event FERS channel counts (for debugging)
-bool printFersLog = false;
+const bool ApplyTbNoise = false;
+const bool AddPedestalToEnergyContribution = false;
+const bool ApplyPedestalSubtraction = false;
+const double ScalePedestalSubtractionFactorS = 1.0;  // 1.09 for correlated
+const double ScalePedestalSubtractionFactorC = 1.0; // 1.055 for correlated
+//const double ScalePedestalSubtractionFactorS = 1.1;  // 1.09 for correlated
+//const double ScalePedestalSubtractionFactorC = 1.055; // 1.055 for correlated
+const double FersThresholdScaleFactor = 1.;
+const NoiseCorrelationMode NoiseMode = NoiseCorrelationMode::UncorrelatedByChannel; // use uncorrelated noise
+//const NoiseCorrelationMode NoiseMode = NoiseCorrelationMode::CorrelatedWithinFers; // use correlated noise within FERS
+
+//const NoiseDistributionMode NoiseDistribution = NoiseDistributionMode::LogNormal;
+const NoiseDistributionMode NoiseDistribution = NoiseDistributionMode::Gaussian;
+const bool printSmearingLog = false;
+const bool printFersLog = false;
+
+///////////////////////////////////////////////////////////
+
+const unsigned int ChannelsPerFers = 64;
+const unsigned int TotalFers = 16;
+const unsigned int TotalCalibChannels = ChannelsPerFers * TotalFers;
 
 
 
-// lambda = mean number of loss opportunities per channel.
-// Probability to lose 1 pe = 1 - exp(-lambda).
-const double SciOnePeLossLambda = 3; // set > 0 to enable
-const double CerOnePeLossLambda = 3; // set > 0 to enable
 
 
+
+using NoiseGeneratorBank = std::vector<TRandom3>;
+
+// -----------------------------------------------------------------------------
+// Utility helpers
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// 3) Add deterministic RNG builders
+//    Note: ROOT treats seed=0 specially, so channel seed uses idx+1.
+// -----------------------------------------------------------------------------
+
+unsigned int MakeChannelNoiseSeed(unsigned int calibIndex){return calibIndex + 1U;}
+unsigned int MakeFersNoiseSeed(unsigned int fersId){return fersId;}
+
+NoiseGeneratorBank BuildChannelNoiseGenerators()
+{
+  NoiseGeneratorBank generators(TotalCalibChannels);
+  for (unsigned int calibIndex = 0; calibIndex < TotalCalibChannels; ++calibIndex) {
+    generators[calibIndex].SetSeed(MakeChannelNoiseSeed(calibIndex));
+  }
+  return generators;
+}
+
+NoiseGeneratorBank BuildFersNoiseGenerators()
+{
+  NoiseGeneratorBank generators(TotalFers + 1U);
+  for (unsigned int fersId = 1; fersId <= TotalFers; ++fersId) {
+    generators[fersId].SetSeed(MakeFersNoiseSeed(fersId));
+  }
+  return generators;
+}
 
 
 double apply_sipm_saturation_from_pe(double pe,
@@ -94,6 +142,8 @@ double apply_sipm_saturation_from_pe(double pe,
   return firedCells / phePerGeV;
 }
 
+
+// FERS activation values (pedestal subtracted)
 std::map<unsigned int, double> fers_to_thr_map = {
     { 1, 0.17 },
     { 2, 0.20 },
@@ -113,62 +163,37 @@ std::map<unsigned int, double> fers_to_thr_map = {
     {16, 0.06 }
 };
 
-using ChannelNoiseVector = std::vector<double>;
+/*
+// FERS activation values ( non-pedestal subtracted)
+std::map<unsigned int, double> fers_to_thr_map = {
+{1, 0.2225},
+{2, 0.24},
+{3, 0.3508},
+{4, 0.3508},
+{5, 0.1641},
+{6, 0.1525},
+{7, 0.1405},
+{8, 0.0942},
+{9, 0.0592},
+{10, 0.0592},
+{11, 0.0358},
+{12, 0.0825},
+{13, 0.0825},
+{14, 0.0825},
+{15, 0.1413},
+{16, 0.1413}
+};*/
 
-std::string Trim(const std::string& value)
-{
-  const std::size_t first = value.find_first_not_of(" \t\r\n");
-  if (first == std::string::npos) {
-    return "";
-  }
+struct PedestalHgEntry {
+  double medianAdc = 0.0;
+  double rmsAdc = 0.0;
+};
 
-  const std::size_t last = value.find_last_not_of(" \t\r\n");
-  return value.substr(first, last - first + 1);
-}
-
-ChannelNoiseVector LoadNoiseValuesFromCsv(const std::string& csvPath)
-{
-  std::ifstream in(csvPath);
-  if (!in) {
-    throw std::runtime_error("Cannot open noise CSV: " + csvPath);
-  }
-
-  ChannelNoiseVector values;
-  std::string line;
-
-  while (std::getline(in, line)) {
-    const std::string trimmed = Trim(line);
-    if (trimmed.empty()) {
-      continue;
-    }
-
-    const std::size_t commaPos = trimmed.find(',');
-    const std::string token =
-      Trim(trimmed.substr(0, commaPos == std::string::npos ? trimmed.size() : commaPos));
-
-    values.push_back(std::stod(token));
-  }
-
-  if (values.empty()) {
-    throw std::runtime_error("Noise CSV is empty: " + csvPath);
-  }
-
-  return values;
-}
-
-double GetChannelNoiseSigma(const ChannelNoiseVector& noiseValues, int ch)
-{
-  if (ch < 0 || static_cast<std::size_t>(ch) >= noiseValues.size()) {
-    std::ostringstream os;
-    os << "Missing per-channel noise sigma for channel " << ch
-       << " (CSV size = " << noiseValues.size() << ")";
-    throw std::runtime_error(os.str());
-  }
-
-  return noiseValues[static_cast<std::size_t>(ch)];
-}
+using PedestalHgVector = std::vector<PedestalHgEntry>;
+using AdcToGeVVector = std::vector<double>;
 
 struct SipmMapEntry {
+  int calibIndex = -1;
   int boardID = -1;
   std::string type;
   int row = -1;
@@ -180,12 +205,11 @@ struct SipmMapEntry {
   std::string module_name;
   double x_local = 0.0;
   double y_local = 0.0;
-};
 
-struct FersChannelHit {
-  uint64_t key = 0;
-  double rawPhe = 0.0;
-  double signal = 0.0;
+  double pedestalMedianHgAdc = 0.0;
+  double pedestalRmsHgAdc = 0.0;
+  double pedestalMedianHgGeV = 0.0;
+  double pedestalRmsHgGeV = 0.0;
 };
 
 struct EventDisplayHit {
@@ -213,6 +237,7 @@ struct HistMomentSummary {
 using SipmLookup = std::unordered_map<std::string, SipmMapEntry>;
 using FersKey = uint64_t;
 
+// Constrct a unique key for each FERS+channel combination for easier lookup and accumulation
 struct ChannelKey {
   FersKey fersKey = 0;
   int ch = -1;
@@ -236,97 +261,20 @@ struct ChannelAccumulatedSignal {
   FersKey fersKey = 0;
   int fersId = -1;
   int ch = -1;
+  int calibIndex = -1;
+  bool isSci = false;
   double threshold = 0.0;
   double thresholdSignal = 0.0;
   double outputSignal = 0.0;
+  double pedestalMean = 0.0;
+  double noiseSigma = 0.0;
   double smearedThresholdSignal = 0.0;
   double smearedOutputSignal = 0.0;
 };
 
+
 using ChannelSignalMap =
   std::unordered_map<ChannelKey, ChannelAccumulatedSignal, ChannelKeyHash>;
-
-void SmearAndCountChannelsOverThreshold(
-  ChannelSignalMap& channelSignals,
-  std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold,
-  TRandom3& rng,
-  const ChannelNoiseVector& channelNoiseValues)
-{
-  for (auto& [channelKey, channel] : channelSignals) {
-    const double sigma = GetChannelNoiseSigma(channelNoiseValues, channel.ch);
-
-    double noise = 0.;
-    if(ApplyTbNoise){
-      noise = (sigma > 0.0) ? rng.Gaus(0.0, sigma) : 0.0;
-    }
-
-
-    channel.smearedThresholdSignal = channel.thresholdSignal + noise;
-    channel.smearedOutputSignal = channel.outputSignal + noise;
-
-    // FERS activation logic: if smeared threshold signal is above threshold,
-    // count this channel for FERS multiplicity
-    if (channel.smearedThresholdSignal > channel.threshold) {
-      ++fersChannelsOverThreshold[channel.fersKey];
-    }
-  }
-}
-
-
-
-
-
-
-
-
-int board_id_from_fers_key(FersKey key)
-{
-  return static_cast<int>(static_cast<uint32_t>(key >> 32));
-}
-
-void PrintPerEventFersChannelCounts(
-  unsigned int eventIndex,
-  const ChannelSignalMap& sciChannelSignals,
-  const ChannelSignalMap& cerChannelSignals,
-  const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold)
-{
-  std::map<std::pair<int, int>, FersKey> fersSeen;
-
-  auto collectFers = [&](const ChannelSignalMap& channelSignals) {
-    for (const auto& [channelKey, channel] : channelSignals) {
-      const int boardID = board_id_from_fers_key(channel.fersKey);
-      fersSeen[{boardID, channel.fersId}] = channel.fersKey;
-    }
-  };
-
-  collectFers(sciChannelSignals);
-  collectFers(cerChannelSignals);
-
-  if (printFersLog) {
-    std::cout << "Event " << eventIndex << ":\n";
-    for (const auto& [id, key] : fersSeen) {
-      const int boardID = id.first;
-      const int fersId = id.second;
-
-      const auto it = fersChannelsOverThreshold.find(key);
-      const unsigned int nChannelsOverThreshold =
-        (it != fersChannelsOverThreshold.end()) ? it->second : 0U;
-
-        std::cout
-          << "  board " << boardID
-          << ", FERS " << fersId
-          << " -> channels above threshold = " << nChannelsOverThreshold;
-      
-      if (nChannelsOverThreshold >= FersMultiplicity) {
-        std::cout << " [ON]";
-      } else {
-        std::cout << " [OFF]";
-      }
-
-      std::cout << '\n';
-    }
-  }
-}
 
 std::string make_sipm_key(const std::string& tower,
                           const std::string& type,
@@ -344,14 +292,14 @@ FersKey make_fers_key(int boardID, int fersId)
          static_cast<uint32_t>(fersId);
 }
 
+int board_id_from_fers_key(FersKey key)
+{
+  return static_cast<int>(static_cast<uint32_t>(key >> 32));
+}
+
 int grouped_column(int colID_original, unsigned int groupingValue)
 {
   return static_cast<int>(colID_original / groupingValue);
-}
-
-int grouped_to_json_column(int groupedCol, unsigned int groupingValue)
-{
-  return groupedCol * static_cast<int>(groupingValue) + static_cast<int>(groupingValue) / 2;
 }
 
 double GetFersThreshold(int fersId)
@@ -364,16 +312,167 @@ double GetFersThreshold(int fersId)
   if (it == fers_to_thr_map.end()) {
     throw std::runtime_error("Missing threshold for FERS id: " + std::to_string(fersId));
   }
-
-  return it->second;
+  
+  //return it->second;
+  return it->second * FersThresholdScaleFactor; // try scaling to consider pedestal non-subtracted values
 }
 
+// -----------------------------------------------------------------------------
+// Calibration loaders
+// -----------------------------------------------------------------------------
+
+PedestalHgVector LoadHgPedestalsFromJson(const std::string& jsonPath)
+{
+  std::ifstream in(jsonPath);
+  if (!in) {
+    throw std::runtime_error("Cannot open pedestal JSON: " + jsonPath);
+  }
+
+  json j;
+  in >> j;
+
+  if (!j.is_object()) {
+    throw std::runtime_error("Pedestal JSON must be an object: " + jsonPath);
+  }
+
+  std::size_t maxIndex = 0;
+  for (auto it = j.begin(); it != j.end(); ++it) {
+    const int idx = std::stoi(it.key());
+    if (idx < 0) {
+      throw std::runtime_error("Negative pedestal index in: " + jsonPath);
+    }
+    maxIndex = std::max(maxIndex, static_cast<std::size_t>(idx));
+  }
+
+  PedestalHgVector values(maxIndex + 1);
+  std::vector<bool> found(maxIndex + 1, false);
+
+  for (auto it = j.begin(); it != j.end(); ++it) {
+    const int idx = std::stoi(it.key());
+    const json& node = it.value();
+
+    values[static_cast<std::size_t>(idx)].medianAdc = node.value("median_HG", 0.0);
+    values[static_cast<std::size_t>(idx)].rmsAdc = node.value("iqr_eff_HG", 0.0);
+    found[static_cast<std::size_t>(idx)] = true;
+  }
+
+  for (std::size_t i = 0; i < found.size(); ++i) {
+    if (!found[i]) {
+      std::ostringstream os;
+      os << "Missing HG pedestal entry for channel " << i
+         << " in " << jsonPath;
+      throw std::runtime_error(os.str());
+    }
+  }
+
+  return values;
+}
+
+AdcToGeVVector LoadAdcToGeVFromJson(const std::string& jsonPath)
+{
+  std::ifstream in(jsonPath);
+  if (!in) {
+    throw std::runtime_error("Cannot open ADC->GeV JSON: " + jsonPath);
+  }
+
+  json j;
+  in >> j;
+
+  if (!j.is_array()) {
+    throw std::runtime_error("ADC->GeV JSON must be an array: " + jsonPath);
+  }
+
+  AdcToGeVVector values;
+  values.reserve(j.size());
+
+  for (const auto& item : j) {
+    values.push_back(item.get<double>());
+  }
+
+  if (values.empty()) {
+    throw std::runtime_error("ADC->GeV JSON is empty: " + jsonPath);
+  }
+
+  return values;
+}
+
+// not used in current version
+std::size_t BuildCalibrationIndex(const SipmMapEntry& entry)
+{
+  if (entry.fersId <= 0 || entry.fersId > static_cast<int>(TotalFers)) {
+    std::ostringstream os;
+    os << "Invalid FERS id " << entry.fersId;
+    throw std::runtime_error(os.str());
+  }
+
+  if (entry.ch < 0 || entry.ch >= static_cast<int>(ChannelsPerFers)) {
+    std::ostringstream os;
+    os << "Invalid channel " << entry.ch
+       << " for FERS " << entry.fersId;
+    throw std::runtime_error(os.str());
+  }
+
+  const std::size_t idx =
+    (static_cast<std::size_t>(entry.fersId) - 1U) * ChannelsPerFers +
+    static_cast<std::size_t>(entry.ch);
+
+  if (idx >= TotalCalibChannels) {
+    std::ostringstream os;
+    os << "Calibration index out of range: " << idx
+       << " from FERS " << entry.fersId
+       << ", ch " << entry.ch;
+    throw std::runtime_error(os.str());
+  }
+
+  return idx;
+}
+
+void AttachHgPedestalNoiseToSipmMap(SipmLookup& lookup,
+                                    const PedestalHgVector& pedestalsHg,
+                                    const AdcToGeVVector& adcToGeV)
+{
+  if (pedestalsHg.size() != TotalCalibChannels) {
+    std::ostringstream os;
+    os << "Expected " << TotalCalibChannels
+       << " HG pedestal entries, got " << pedestalsHg.size();
+    throw std::runtime_error(os.str());
+  }
+
+  if (adcToGeV.size() != TotalCalibChannels) {
+    std::ostringstream os;
+    os << "Expected " << TotalCalibChannels
+       << " ADC->GeV entries, got " << adcToGeV.size();
+    throw std::runtime_error(os.str());
+  }
+
+  for (auto& [key, entry] : lookup) {
+    if (entry.calibIndex < 0 || entry.calibIndex >= static_cast<int>(TotalCalibChannels)) {
+      std::ostringstream os;
+      os << "Invalid calibIndex " << entry.calibIndex
+         << " for map entry " << key;
+      throw std::runtime_error(os.str());
+    }
+
+    const std::size_t idx = static_cast<std::size_t>(entry.calibIndex);
+
+    entry.pedestalMedianHgAdc = pedestalsHg[idx].medianAdc;
+    entry.pedestalRmsHgAdc = pedestalsHg[idx].rmsAdc;
+    entry.pedestalMedianHgGeV = pedestalsHg[idx].medianAdc * adcToGeV[idx];
+    entry.pedestalRmsHgGeV = pedestalsHg[idx].rmsAdc * adcToGeV[idx];
+  }
+}
+
+
+
+// -----------------------------------------------------------------------------
+// Signal accumulation in each channel and smearing
+// Apply saturation to a single signal path for both threshold and output consistency
+// -----------------------------------------------------------------------------
 void AccumulateChannelSignal(ChannelSignalMap& channelSignals,
                              const SipmMapEntry& info,
-                             double thresholdSignalContribution,
-                             double outputSignalContribution)
+                             double signalContribution)
 {
-  if (info.boardID < 0 || info.fersId < 0 || info.ch < 0) {
+  if (info.boardID < 0 || info.fersId < 0 || info.ch < 0 || info.calibIndex < 0) {
     return;
   }
 
@@ -386,17 +485,191 @@ void AccumulateChannelSignal(ChannelSignalMap& channelSignals,
       fersKey,
       info.fersId,
       info.ch,
+      info.calibIndex,
+      info.type == "S",
       GetFersThreshold(info.fersId),
       0.0,
       0.0,
+      info.pedestalMedianHgGeV,
+      info.pedestalRmsHgGeV,
       0.0,
       0.0
     }
   );
 
-  it->second.thresholdSignal += thresholdSignalContribution;
-  it->second.outputSignal += outputSignalContribution;
+  if (!inserted && it->second.calibIndex != info.calibIndex) {
+    std::ostringstream os;
+    os << "Inconsistent calibIndex for accumulated channel: existing="
+       << it->second.calibIndex << ", new=" << info.calibIndex
+       << " for FERS " << info.fersId << ", ch " << info.ch;
+    throw std::runtime_error(os.str());
+  }
+
+  // Use single signal for both threshold and output to ensure consistency
+  it->second.thresholdSignal += signalContribution;
+  it->second.outputSignal += signalContribution;
 }
+
+double DrawUnitGaussianNoiseForChannel(const ChannelAccumulatedSignal& channel,
+                                       NoiseGeneratorBank& channelNoiseGenerators)
+{
+  if (channel.calibIndex < 0 ||
+      channel.calibIndex >= static_cast<int>(channelNoiseGenerators.size())) {
+    std::ostringstream os;
+    os << "Invalid calibIndex " << channel.calibIndex
+       << " while drawing channel noise";
+    throw std::runtime_error(os.str());
+  }
+
+  return channelNoiseGenerators[static_cast<std::size_t>(channel.calibIndex)].Gaus(0.0, 1.0);
+}
+
+double DrawUnitGaussianNoiseForFers(
+  const ChannelAccumulatedSignal& channel,
+  NoiseGeneratorBank& fersNoiseGenerators,
+  std::unordered_map<FersKey, double>& fersEventNoiseCache)
+{
+  const auto it = fersEventNoiseCache.find(channel.fersKey);
+  if (it != fersEventNoiseCache.end()) {
+    return it->second;
+  }
+
+  if (channel.fersId <= 0 ||
+      channel.fersId >= static_cast<int>(fersNoiseGenerators.size()))
+      {
+        throw std::runtime_error(
+          "Invalid FERS id " + std::to_string(channel.fersId) +
+          " while drawing correlated FERS noise"
+        ); 
+      }
+
+
+  const double sharedUnitNoise =
+    fersNoiseGenerators[static_cast<std::size_t>(channel.fersId)].Gaus(0.0, 1.0);
+
+  fersEventNoiseCache[channel.fersKey] = sharedUnitNoise;
+  return sharedUnitNoise;
+}
+
+
+struct LogNormalParameters {
+  double mu = 0.0;
+  double sigma = 0.0;
+};
+
+LogNormalParameters GetLogNormalParametersFromMeanRms(double mean, double rms)
+{
+  if (mean <= 0.0 || rms <= 0.0) {
+    return {0.0, 0.0};
+  }
+
+  const double variance = rms * rms;
+
+  LogNormalParameters pars;
+  pars.sigma = std::sqrt(std::log(1.0 + variance / (mean * mean)));
+  pars.mu = std::log(mean) - 0.5 * pars.sigma * pars.sigma;
+
+  return pars;
+}
+
+double DrawLogNormalWithMeanRms(TRandom3& rng, double mean, double rms)
+{
+  if (mean <= 0.0) {
+    return 0.0;
+  }
+
+  if (rms <= 0.0) {
+    return mean;
+  }
+
+  const LogNormalParameters pars =
+    GetLogNormalParametersFromMeanRms(mean, rms);
+
+  return std::exp(rng.Gaus(pars.mu, pars.sigma));
+}
+
+
+
+// -----------------------------------------------------------------------------
+//Smearing: noise first, activation decision first, no pedestal subtraction here
+void SmearAndCountChannelsOverThreshold(
+  ChannelSignalMap& channelSignals,
+  std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold,
+  NoiseCorrelationMode noiseMode,
+  NoiseGeneratorBank& channelNoiseGenerators,
+  NoiseGeneratorBank& fersNoiseGenerators,
+  std::unordered_map<FersKey, double>& fersEventNoiseCache) 
+{
+
+  for (auto& [channelKey, channel] : channelSignals) {
+
+    double pedestalContribution = 0.0;
+
+    if (AddPedestalToEnergyContribution) {
+
+      if (!ApplyTbNoise || channel.noiseSigma <= 0.0) {
+        pedestalContribution = channel.pedestalMean;
+      }
+
+      else if (NoiseDistribution == NoiseDistributionMode::Gaussian) {
+        double unitNoise = 0.0;
+
+        if (noiseMode == NoiseCorrelationMode::UncorrelatedByChannel) {
+          unitNoise = DrawUnitGaussianNoiseForChannel(
+            channel,
+            channelNoiseGenerators
+          );
+        } else if (noiseMode == NoiseCorrelationMode::CorrelatedWithinFers) {
+          unitNoise = DrawUnitGaussianNoiseForFers(
+            channel,
+            fersNoiseGenerators,
+            fersEventNoiseCache
+          );
+        }
+
+        pedestalContribution =
+          channel.pedestalMean + unitNoise * channel.noiseSigma;
+      }
+
+      else if (NoiseDistribution == NoiseDistributionMode::LogNormal) {
+        if (noiseMode == NoiseCorrelationMode::UncorrelatedByChannel) {
+          pedestalContribution = DrawLogNormalWithMeanRms(
+            channelNoiseGenerators[static_cast<std::size_t>(channel.calibIndex)],
+            channel.pedestalMean,
+            channel.noiseSigma
+          );
+        } else if (noiseMode == NoiseCorrelationMode::CorrelatedWithinFers) {
+          pedestalContribution = DrawLogNormalWithMeanRms(
+            fersNoiseGenerators[static_cast<std::size_t>(channel.fersId)],
+            channel.pedestalMean,
+            channel.noiseSigma
+          );
+        }
+      }
+    }
+
+    channel.smearedThresholdSignal =
+      channel.thresholdSignal + pedestalContribution;
+
+    channel.smearedOutputSignal =
+      channel.outputSignal + pedestalContribution;
+
+
+
+
+
+    if (channel.smearedThresholdSignal > channel.threshold) {
+      ++fersChannelsOverThreshold[channel.fersKey];
+    }
+
+
+
+
+  }
+}
+
+
+
 
 bool IsActivatedFers(const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold,
                      FersKey key)
@@ -438,35 +711,115 @@ unsigned int CountActivatedFers(
 }
 
 
-
-void ApplyPoissonOnePeLossToActivatedChannels(
+// -----------------------------------------------------------------------------
+// 4) subtract pedestal only for activated FERS
+void SubtractPedestalMedianFromActivatedChannels(
   ChannelSignalMap& channelSignals,
-  const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold,
-  TRandom3& rng,
-  double phePerGeV,
-  double lossLambda)
+  const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold)
 {
-  if (lossLambda <= 0.0 || phePerGeV <= 0.0) {
-    return;
-  }
-
-  const double onePeInSignalUnits = 1.0 / phePerGeV;
-
   for (auto& [channelKey, channel] : channelSignals) {
     if (!IsActivatedFers(fersChannelsOverThreshold, channel.fersKey)) {
       continue;
     }
 
-    const int nLosses = rng.Poisson(lossLambda);
-    if (nLosses <= 0) {
+    if(ApplyPedestalSubtraction)
+    {
+      const double scale = channel.isSci
+        ? ScalePedestalSubtractionFactorS
+        : ScalePedestalSubtractionFactorC;
+
+      //channel.smearedOutputSignal -= channel.pedestalMean;
+      if(channel.outputSignal>0 and printSmearingLog){
+      std::cout << "Subtracting pedestal median for FERS " << channel.fersId
+                << ", ch " << channel.ch
+                << ", true signal: " << channel.outputSignal
+                << "\t smeared signal: " << channel.smearedOutputSignal
+                << "\t pedestal median: " << channel.pedestalMean
+                << "\t scale: " << scale << std::endl;}
+      channel.smearedOutputSignal -= channel.pedestalMean * scale;
+    }
+    // Allow negative values: downward fluctuations naturally subtract from total energy
+  }
+}
+
+void FillActivatedChannelOutputArrays(
+  const ChannelSignalMap& channelSignals,
+  const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold,
+  std::vector<double>& activatedChannelOutput,
+  std::vector<double>& activatedChannelOutputTrue,
+  std::vector<double>& activatedChannelOutputSmeared)
+{
+  if (activatedChannelOutput.size() != activatedChannelOutputTrue.size() ||
+      activatedChannelOutput.size() != activatedChannelOutputSmeared.size()) {
+    throw std::runtime_error("Activated channel output arrays must have the same size");
+  }
+
+  for (const auto& [channelKey, channel] : channelSignals) {
+    if (channel.calibIndex < 0 ||
+        channel.calibIndex >= static_cast<int>(activatedChannelOutput.size())) {
+      std::ostringstream os;
+      os << "Invalid calibIndex " << channel.calibIndex
+         << " while filling activated channel output arrays";
+      throw std::runtime_error(os.str());
+    }
+
+    if (!IsActivatedFers(fersChannelsOverThreshold, channel.fersKey)) {
       continue;
     }
 
-    //channel.smearedOutputSignal -= onePeInSignalUnits;
-    channel.smearedOutputSignal -= nLosses * onePeInSignalUnits;
+    const std::size_t idx = static_cast<std::size_t>(channel.calibIndex);
 
-    if (channel.smearedOutputSignal < 0.0) {
-      channel.smearedOutputSignal = 0.0;
+    activatedChannelOutputTrue[idx] = channel.outputSignal;
+    activatedChannelOutputSmeared[idx] = channel.smearedOutputSignal;
+
+    // keep the legacy branch identical to the smeared output
+    activatedChannelOutput[idx] = channel.smearedOutputSignal;
+  }
+}
+
+
+
+
+void PrintPerEventFersChannelCounts(
+  unsigned int eventIndex,
+  const ChannelSignalMap& sciChannelSignals,
+  const ChannelSignalMap& cerChannelSignals,
+  const std::unordered_map<FersKey, unsigned int>& fersChannelsOverThreshold)
+{
+  std::map<std::pair<int, int>, FersKey> fersSeen;
+
+  auto collectFers = [&](const ChannelSignalMap& channelSignals) {
+    for (const auto& [channelKey, channel] : channelSignals) {
+      const int boardID = board_id_from_fers_key(channel.fersKey);
+      fersSeen[{boardID, channel.fersId}] = channel.fersKey;
+    }
+  };
+
+  collectFers(sciChannelSignals);
+  collectFers(cerChannelSignals);
+
+  if (printFersLog) {
+    std::cout << "Event " << eventIndex << ":\n";
+    for (const auto& [id, key] : fersSeen) {
+      const int boardID = id.first;
+      const int fersId = id.second;
+
+      const auto it = fersChannelsOverThreshold.find(key);
+      const unsigned int nChannelsOverThreshold =
+        (it != fersChannelsOverThreshold.end()) ? it->second : 0U;
+
+      std::cout
+        << "  board " << boardID
+        << ", FERS " << fersId
+        << " -> channels above threshold = " << nChannelsOverThreshold;
+
+      if (nChannelsOverThreshold >= FersMultiplicity) {
+        std::cout << " [ON]";
+      } else {
+        std::cout << " [OFF]";
+      }
+
+      std::cout << '\n';
     }
   }
 }
@@ -474,8 +827,9 @@ void ApplyPoissonOnePeLossToActivatedChannels(
 
 
 
-/**************************************************************************/
-/************ Utility functions for SiPM map and event display ************/
+// -----------------------------------------------------------------------------
+// SiPM map and event display helpers
+// -----------------------------------------------------------------------------
 SipmLookup LoadSipmMap(const std::string& jsonPath)
 {
   std::ifstream in(jsonPath);
@@ -491,6 +845,7 @@ SipmLookup LoadSipmMap(const std::string& jsonPath)
     const json& node = it.value();
 
     SipmMapEntry entry;
+    entry.calibIndex  = std::stoi(it.key());
     entry.boardID     = node.value("boardID", -1);
     entry.type        = node.value("type", "");
     entry.row         = node.value("row", -1);
@@ -585,11 +940,10 @@ void GetSiPMcoordinate(int TowID,
   SiPM_Y = TowerOffsetY + SiPM_Y;
 }
 
+// -----------------------------------------------------------------------------
+// Analysis/output helpers
+// -----------------------------------------------------------------------------
 
-
-
-/***********************************************************************/
-/************ Utility functions for analysis and output ************/
 std::string simTower_to_tbTower(std::string simTower)
 {
   return std::to_string(306 + std::stoi(simTower));
@@ -720,32 +1074,45 @@ void AppendSummaryCsvLocked(const std::string& csvPath,
   close(fd);
 }
 
+// -----------------------------------------------------------------------------
+// Main analysis
+// -----------------------------------------------------------------------------
 
-
-
-
-/*********************************/
-/***
- * Main analysis function
- * @param energy: beam energy in GeV (used for histogram ranges and output naming)
- * @param input: name of the input ROOT file (relative to ../build/)
- */
-/*********************************/
 void HidraTB25Ana(double energy, const std::string& input)
 {
+  // read SiPM map and calibration files
   const std::string sipmMapPath =
     "/home/apareti/HidraSim2025/TBDataPreparation/2025_SPS/MapAndCalibration/sipm_map.json";
 
+  const std::string pedestalJsonPath =
+    "/home/apareti/HidraSim2025/TBDataPreparation/2025_SPS/MapAndCalibration/SiPM_pedestals_v1.json";
+
+  const std::string adcToGeVJsonPath =
+    "/home/apareti/HidraSim2025/TBDataPreparation/2025_SPS/MapAndCalibration/SiPM_ADCtoGeV_v1.json";
+
+  // Prepare lookup map for SiPMs, with attached pedestal and noise info
+  // key: "tower|type|row|column", value: map entry with FERS/channel info and pedestal/noise
   SipmLookup sipmLookup;
   try {
     sipmLookup = LoadSipmMap(sipmMapPath);
-    std::cout << "Loaded " << sipmLookup.size() << " SiPM map entries from "
-              << sipmMapPath << std::endl;
+
+    const PedestalHgVector pedestalsHg = LoadHgPedestalsFromJson(pedestalJsonPath);
+    const AdcToGeVVector adcToGeV = LoadAdcToGeVFromJson(adcToGeVJsonPath);
+
+    AttachHgPedestalNoiseToSipmMap(sipmLookup, pedestalsHg, adcToGeV);
+
+    std::cout << "Loaded " << sipmLookup.size()
+              << " SiPM map entries from " << sipmMapPath << std::endl;
+    std::cout << "Loaded " << pedestalsHg.size()
+              << " HG pedestal entries from " << pedestalJsonPath << std::endl;
+    std::cout << "Loaded " << adcToGeV.size()
+              << " ADC->GeV entries from " << adcToGeVJsonPath << std::endl;
   } catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     return;
   }
 
+  // read input file and prepare output file
   const std::string infile = "../build/" + input;
   std::cout << "Using file: " << infile << std::endl;
 
@@ -772,32 +1139,35 @@ void HidraTB25Ana(double energy, const std::string& input)
   TDirectory* eventDisplayDir = f.mkdir("EventDisplays");
   f.cd();
 
-  TRandom3 rng(NoiseRandomSeed);
+  TTree* activatedChannelsTree =
+    new TTree("ActivatedChannels", "Per-event activated channel output");
 
-  const std::string sciNoiseCsvPath = "S_sipm_std_run868_HG_4fers.csv";
-  const std::string cerNoiseCsvPath = "C_sipm_std_run868_HG_4fers.csv";
+  unsigned int outEvent = 0;
+  std::vector<double> activatedChannelOutput(TotalCalibChannels, 0.0);
+  std::vector<double> activatedChannelOutputTrue(TotalCalibChannels, 0.0);
+  std::vector<double> activatedChannelOutputSmeared(TotalCalibChannels, 0.0);
 
-  ChannelNoiseVector sciChannelNoiseValues;
-  ChannelNoiseVector cerChannelNoiseValues;
+  activatedChannelsTree->Branch("event", &outEvent);
+  activatedChannelsTree->Branch("activatedChannelOutput", &activatedChannelOutput);
+  activatedChannelsTree->Branch("activatedChannelOutputTrue", &activatedChannelOutputTrue);
+  activatedChannelsTree->Branch("activatedChannelOutputSmeared", &activatedChannelOutputSmeared);
 
-  try {
-    sciChannelNoiseValues = LoadNoiseValuesFromCsv(sciNoiseCsvPath);
-    cerChannelNoiseValues = LoadNoiseValuesFromCsv(cerNoiseCsvPath);
+  // ---------------------------------------
+  // create the RNG banks once
+  // Prepare random generators for noise smearing:
+  // one per calibration channel for uncorrelated noise, one per FERS for correlated noise
+  // ----------------------------------------
+  NoiseGeneratorBank channelNoiseGenerators = BuildChannelNoiseGenerators();
+  NoiseGeneratorBank fersNoiseGenerators = BuildFersNoiseGenerators();
 
-    std::cout << "Loaded " << sciChannelNoiseValues.size()
-              << " S-channel noise values from " << sciNoiseCsvPath << std::endl;
-    std::cout << "Loaded " << cerChannelNoiseValues.size()
-              << " C-channel noise values from " << cerNoiseCsvPath << std::endl;
-  } catch (const std::exception& e) {
-    std::cerr << e.what() << std::endl;
-    return;
-  }
 
-  int modcol[NofModulesX * NofModulesY];
-  int modrow[NofModulesX * NofModulesY];
-  for (int i = 0; i < NofModulesX * NofModulesY; i++) {
-    int row = i / NofModulesX;
-    int col = i % NofModulesX;
+
+  // Load module mapping to fill the event display maps
+  int modcol[NofmodulesX * NofmodulesY];
+  int modrow[NofmodulesX * NofmodulesY];
+  for (int i = 0; i < NofmodulesX * NofmodulesY; i++) {
+    int row = i / NofmodulesX;
+    int col = i % NofmodulesX;
     int imod = modflag[i];
     if (imod >= 0) {
       modcol[imod] = col;
@@ -805,6 +1175,9 @@ void HidraTB25Ana(double energy, const std::string& input)
     }
   }
 
+  // ----------------------------------------
+  // Prepare output histograms
+  // ----------------------------------------
   const double bmin = energy - 0.4 * std::sqrt(energy) * 10.;
   const double bmax = energy + 0.4 * std::sqrt(energy) * 10.;
 
@@ -816,8 +1189,8 @@ void HidraTB25Ana(double energy, const std::string& input)
   auto leakene = new TH1F("leakene", "leakene", 100, 0., 0.1);
   auto chidist = new TH1F("chidist", "chidist", 100, 0., 1.);
   auto mapcalo  = new TH2F("mapcalo", "mapcalo",
-                           NofModulesX, 0., NofModulesX,
-                           NofModulesY, 0., NofModulesY);
+                           NofmodulesX, 0., NofmodulesX,
+                           NofmodulesY, 0., NofmodulesY);
   auto SipmMapS = new TH2F("SipmMapS", "SipmS; Col; Row",
                            NofSiPMTowersX * NofFiberscolumn, 0, NofSiPMTowersX * NofFiberscolumn,
                            NofSiPMTowersY * NofFibersrow, 0, NofSiPMTowersY * NofFibersrow);
@@ -848,8 +1221,15 @@ void HidraTB25Ana(double energy, const std::string& input)
   auto SignalSfersID = new TH1F("SignalSfersID", "Signal S fibers FERS ID; FERS; Signal", 16, 0.5, 16.5);
   auto SignalCfersID = new TH1F("SignalCfersID", "Signal C fibers FERS ID; FERS; Signal", 16, 0.5, 16.5);
 
-  auto scieneFersOn = new TH1F("scieneFersOn", "S energy for Activated FERS", 100, -50., bmax);
-  auto cereneFersOn = new TH1F("cereneFersOn", "C energy for Activated FERS", 100, -50., bmax);
+  auto scieneFersOn = new TH1F("scieneFersOn", "S energy for Activated FERS", 100, 0., bmax);
+  auto cereneFersOn = new TH1F("cereneFersOn", "C energy for Activated FERS", 100, 0., bmax);
+
+  auto h2_SvsC = new TH2F("SvsC", "S vs C energy (all fibres); S/E; C/E", 100, -0.5, 1.5, 100, 0., 1.5);
+  auto h2_SvsCFersOn = new TH2F("SvsCFersOn", "S vs C energy for Activated FERS; S/E; C/E", 100, 0., 1.5, 100, 0., 1.5);
+
+  // Count number of activated channels per FERS, to check the multiplicity distribution and the effect of different thresholds
+  auto ActivatedChannelsPerFers = new TH2F("ActivatedChannelsPerFers", "Activated channels per FERS; FERS ID; Channels above threshold",16, 0.5, 16.5, 65, -0.5, 64.5);
+
 
   const int nentries = simtree->GetEntries();
   std::cout << "Entries " << nentries << std::endl;
@@ -873,6 +1253,7 @@ void HidraTB25Ana(double energy, const std::string& input)
   for (unsigned int i = 0; i < static_cast<unsigned int>(nentries); i++) {
     simtree->GetEntry(i);
 
+    // store one event display every N events
     const bool writeEventDisplay =
       (EventDisplayEvery > 0) && (((i + 1) % EventDisplayEvery) == 0);
 
@@ -886,7 +1267,13 @@ void HidraTB25Ana(double energy, const std::string& input)
     double barX_cer = 0.;
     double barY_cer = 0.;
 
+    outEvent = i;
+    // prepare the per-event data structures for the smearing and activation steps
+    std::fill(activatedChannelOutput.begin(), activatedChannelOutput.end(), 0.0);
+    std::fill(activatedChannelOutputTrue.begin(), activatedChannelOutputTrue.end(), 0.0);
+    std::fill(activatedChannelOutputSmeared.begin(), activatedChannelOutputSmeared.end(), 0.0);
     std::unordered_map<FersKey, unsigned int> fersChannelsOverThreshold;
+
     std::vector<EventDisplayHit> eventDisplaySciHits;
     std::vector<EventDisplayHit> eventDisplayCerHits;
 
@@ -901,6 +1288,7 @@ void HidraTB25Ana(double energy, const std::string& input)
       eventDisplayCerHits.reserve(CSiPM->size());
     }
 
+    // Fill energy in PMT towers
     for (unsigned int j = 0; j < SPMT->size(); j++) {
       totsci += SPMT->at(j) / sciPheGeV;
       totcer += CPMT->at(j) / cerPheGeV;
@@ -911,47 +1299,62 @@ void HidraTB25Ana(double energy, const std::string& input)
     double sciPosWeight = 0.0;
     double cerPosWeight = 0.0;
 
+    // Prepare shared random map to have correlated noise between S/C channels
+    std::unordered_map<FersKey, double> fersEventNoiseCache;
 
-    // Start loop over SiPM signals - S channels
+
+    // Start looping on SiPM signals
     for (unsigned int n = 0; n < SSiPM->size(); n++) {
-      const double rawPhe = SSiPM->at(n);
-      const double content = rawPhe / sciPheGeV;
+      const double rawPhe = SSiPM->at(n);        // number of photoelectrons
+      const double content = rawPhe / sciPheGeV; // converted to GeV
 
       totsci += content;
 
       const unsigned int towID  = static_cast<unsigned int>(n / (NofFiberscolumn * NofFibersrow / 2));
       const unsigned int SiPMID = n % (NofFiberscolumn * NofFibersrow / 2);
-      const unsigned int colID  = NofFiberscolumn - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
+      //const unsigned int colID  = NofFiberscolumn - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
+      const unsigned int colID  = NofFiberscolumn -1U - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
       const unsigned int rowID  = 2 * static_cast<unsigned int>(SiPMID % (NofFibersrow / 2));
 
       double SiPM_X = 0.0;
       double SiPM_Y = 0.0;
 
-      GetSiPMcoordinate(towID, rowID, colID, SiPM_X, SiPM_Y, "S", grouping); // Not used after JSON SiPM map implementation, kept for reference
+      GetSiPMcoordinate(towID, rowID, colID, SiPM_X, SiPM_Y, "S", grouping); // Currently not used, JSON map is read instead
 
-      const std::string tbTower = simTower_to_tbTower(std::to_string(towID));
-      const int groupedCol = grouped_column(static_cast<int>(colID), grouping);
+      const std::string tbTower = simTower_to_tbTower(std::to_string(towID)); // convert from sim tower ID to test beam tower ID
+      const int groupedCol = grouped_column(static_cast<int>(colID), grouping); // single fibre to channel mapping
 
       SipmMapS->Fill(colID, towID * NofFibersrow + rowID, content);
 
-      const SipmMapEntry* info = FindSipmInfo(sipmLookup, tbTower, "S", static_cast<int>(rowID), groupedCol, grouping);
+      // now associate the SiPM signal to the corresponding FERS and channel
+      const SipmMapEntry* info =
+        FindSipmInfo(sipmLookup, tbTower, "S", static_cast<int>(rowID), groupedCol, grouping);
 
       if (info) {
-        SciSiPMCoordinates->Fill(info->x, info->y, content);
+        SciSiPMCoordinates->Fill(info->x, info->y, content); // add fibre content to mapped channel signal
         SignalSfersID->Fill(info->fersId, content / nentries);
         barX_sci += info->x * content;
         barY_sci += info->y * content;
         sciPosWeight += content;
 
+        // accumulate the signal in the corresponding channel for smearing and activation steps
         if (info->boardID >= 0 && info->fersId >= 0) {
-          const FersKey key = make_fers_key(info->boardID, info->fersId);
-          const double outputSignal = ApplySaturation ? apply_sipm_saturation_from_pe(rawPhe, sciPheGeV, NofSipmCells_sci) : content;
+          // create the key to identify the FERS this SiPM belongs to
+          const FersKey key = make_fers_key(info->boardID, info->fersId); 
+          
+          // Apply saturation consistently for both threshold and output energy
+          const double saturatedSignal =
+            ApplySaturation
+              ? apply_sipm_saturation_from_pe(rawPhe, sciPheGeV, NofSipmCells_sci)
+              : content;
 
+          // accumulate the signal for this channel
+          // reads threshold values for this channel from the map
+          // and updates the signal and FERS->channel count maps
           AccumulateChannelSignal(
             sciChannelSignals,
             *info,
-            content,
-            outputSignal
+            saturatedSignal
           );
 
           if (writeEventDisplay) {
@@ -959,11 +1362,8 @@ void HidraTB25Ana(double energy, const std::string& input)
           }
         }
       }
-    } // end loop over S SiPM channels
+    }
 
-
-
-    // Start loop over SiPM signals - C channels
     for (unsigned int n = 0; n < CSiPM->size(); n++) {
       const double rawPhe = CSiPM->at(n);
       const double content = rawPhe / cerPheGeV;
@@ -972,10 +1372,11 @@ void HidraTB25Ana(double energy, const std::string& input)
 
       const unsigned int towID  = static_cast<unsigned int>(n / (NofFiberscolumn * NofFibersrow / 2));
       const unsigned int SiPMID = n % (NofFiberscolumn * NofFibersrow / 2);
-      const unsigned int colID  = NofFiberscolumn - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
+      //const unsigned int colID  = NofFiberscolumn - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
+      const unsigned int colID  = NofFiberscolumn -1U - static_cast<unsigned int>(SiPMID / (NofFibersrow / 2));
       const unsigned int rowID  = 2 * static_cast<unsigned int>(SiPMID % (NofFibersrow / 2)) + 1;
 
-      SipmMapC->Fill(colID, towID * NofFibersrow + rowID, content); // Not used after JSON SiPM map implementation, kept for reference
+      SipmMapC->Fill(colID, towID * NofFibersrow + rowID, content);
 
       const std::string tbTower = simTower_to_tbTower(std::to_string(towID));
       const int groupedCol = grouped_column(static_cast<int>(colID), grouping);
@@ -990,9 +1391,12 @@ void HidraTB25Ana(double energy, const std::string& input)
         barY_cer += info->y * content;
         cerPosWeight += content;
 
+        // accumulate the signal for this channel
         if (info->boardID >= 0 && info->fersId >= 0) {
           const FersKey key = make_fers_key(info->boardID, info->fersId);
-          const double outputSignal =
+          
+          // Apply saturation consistently for both threshold and output energy
+          const double saturatedSignal =
             ApplySaturation
               ? apply_sipm_saturation_from_pe(rawPhe, cerPheGeV, NofSipmCells_cer)
               : content;
@@ -1000,8 +1404,7 @@ void HidraTB25Ana(double energy, const std::string& input)
           AccumulateChannelSignal(
             cerChannelSignals,
             *info,
-            content,
-            outputSignal
+            saturatedSignal
           );
 
           if (writeEventDisplay) {
@@ -1009,41 +1412,74 @@ void HidraTB25Ana(double energy, const std::string& input)
           }
         }
       }
-    } // end loop over C SiPM channels
+    } // end C Sipm loop
 
-    SmearAndCountChannelsOverThreshold(
+
+    //------------------------------
+    // FERS ACTIVATION LOGIC
+    //------------------------------
+
+    // Now apply noise smearing and thresholding to the accumulated channel signals
+    // and fill the activated channel output array for this event
+    // Count number of channels over threshold per FERS
+    SmearAndCountChannelsOverThreshold( // S channel
       sciChannelSignals,
       fersChannelsOverThreshold,
-      rng,
-      sciChannelNoiseValues
+      NoiseMode,
+      channelNoiseGenerators,
+      fersNoiseGenerators,
+      fersEventNoiseCache 
     );
 
-    SmearAndCountChannelsOverThreshold(
+    SmearAndCountChannelsOverThreshold( // C channel
       cerChannelSignals,
       fersChannelsOverThreshold,
-      rng,
-      cerChannelNoiseValues
+      NoiseMode,
+      channelNoiseGenerators,
+      fersNoiseGenerators,
+      fersEventNoiseCache 
     );
 
+    for (unsigned int fersId = 1; fersId <= TotalFers; ++fersId) {
+      unsigned int nOverThreshold = 0;
+
+      for (const auto& [fersKey, count] : fersChannelsOverThreshold) {
+        if (static_cast<unsigned int>(static_cast<uint32_t>(fersKey)) == fersId) {
+          nOverThreshold += count;
+        }
+      }
+
+      ActivatedChannelsPerFers->Fill(fersId, nOverThreshold);
+    }
 
 
-    // Apply 1-pe loss only after FERS activation is known.
-    ApplyPoissonOnePeLossToActivatedChannels(
+    // For activated FERS channels, subtract the pedestal median
+    SubtractPedestalMedianFromActivatedChannels(
+      sciChannelSignals,
+      fersChannelsOverThreshold
+    );
+    SubtractPedestalMedianFromActivatedChannels(
+      cerChannelSignals,
+      fersChannelsOverThreshold
+    );
+
+    FillActivatedChannelOutputArrays(
       sciChannelSignals,
       fersChannelsOverThreshold,
-      rng,
-      sciPheGeV,
-      SciOnePeLossLambda
+      activatedChannelOutput,
+      activatedChannelOutputTrue,
+      activatedChannelOutputSmeared
     );
 
-    ApplyPoissonOnePeLossToActivatedChannels(
+    FillActivatedChannelOutputArrays(
       cerChannelSignals,
       fersChannelsOverThreshold,
-      rng,
-      cerPheGeV,
-      CerOnePeLossLambda
+      activatedChannelOutput,
+      activatedChannelOutputTrue,
+      activatedChannelOutputSmeared
     );
 
+    activatedChannelsTree->Fill();
 
 
     PrintPerEventFersChannelCounts(
@@ -1112,6 +1548,8 @@ void HidraTB25Ana(double energy, const std::string& input)
       f.cd();
     }
 
+
+
     scieneFersOn->Fill(totsciFersOn);
     cereneFersOn->Fill(totcerFersOn);
 
@@ -1122,6 +1560,13 @@ void HidraTB25Ana(double energy, const std::string& input)
     totdep->Fill(tottow / 1000.);
     leakene->Fill(lenergy / 1000. / energy);
     chidist->Fill((totsci - ecalo) / (totcer - ecalo));
+
+
+    h2_SvsC->Fill(totsci / energy, totcer / energy);
+    h2_SvsCFersOn->Fill(totsciFersOn / energy, totcerFersOn / energy);
+
+
+    //break;
   }
 
   const GaussianFitSummary sFit = FitGaussianSummary(sciene);
