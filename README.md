@@ -42,7 +42,7 @@ The project targets a standalone Geant4 simulation of the Dual-Readout tubes-bas
 <!--Authors and contacts-->
 ## Authors and contacts
 - (CERN EP-SFT) Lorenzo Pezzotti (lorenzo.pezzotti@cern.ch), Alberto Ribon (Supervisor)
-- (University of Pavia and INFN Pavia) Andrea Pareti, Gabriella Gaudio
+- (University of Pavia and INFN Pavia) Andrea Pareti (andrea.pareti@cern.ch), Gabriella Gaudio
 
 <!--Documentation and results-->
 ## Documentation and results
@@ -52,13 +52,6 @@ The project targets a standalone Geant4 simulation of the Dual-Readout tubes-bas
 - Dual-Readout Calorimetry Meeting 13/10/2021, **Status of 2021 Test Beam(s) SW** [![Website shields.io](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://indico.cern.ch/event/1086651/contributions/4569695/attachments/2327255/3964777/lopezzot_DR_SW_13_10_2021.pdf)
 - Dual-Readout Calorimetry Meeting 21/7/2021, **DREMTubes: A Geant4 simulation of the DR tubes prototype 2021 beam tests** [![Website shields.io](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://indico.cern.ch/event/1061304/contributions/4460441/attachments/2285253/3883980/DR_lopezzot_21_7_2021.pdf)
 
-<!--Available datasets and analyses-->
-### Available datasets and analyses
-| DREMTubes         | Reproduce data | Reproduce analysis | Comments     |
-| -------------     | ----------     | -----------        | -----------  |
-| v1.3 Dataset #3 <br /> tag 1.3_3 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 26/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run6.mac | No analysis | Run 6 same as Run 5 but with beam spot with 2.0 cm radius. |
-| v1.3 Dataset #2 <br /> tag 1.3_2 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 24/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run4.mac ./DREMTubes -m runcards/DREMTubes_run5.mac | No analysis | Run 4 same as Run 3 but with higher statistics, Run 5 same as Run 4 but without preshower. |
-| v1.3 Dataset #1 <br /> tag 1.3_1 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 17/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run3.mac | root -l DREMTubesanalysis_v1p3.C | Produced data and results shown in the presentation on 19/11/2021 by Lorenzo. Assuming root files from Geant4 are within run3/ folder as pointed in root macro. |
 
 <!-- Output variables: -->
 ## Output variables
