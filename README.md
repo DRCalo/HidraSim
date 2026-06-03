@@ -21,6 +21,7 @@
       </ul>
     </li>
     <li><a href="#available-datasets-and-analyses">Available datasets and analyses</a></li>
+    <li><a href="#output-variables">Output variables</a></li>
     <li>
       <a href="#how-to">How to</a>
       <ul>
@@ -41,7 +42,7 @@ The project targets a standalone Geant4 simulation of the Dual-Readout tubes-bas
 <!--Authors and contacts-->
 ## Authors and contacts
 - (CERN EP-SFT) Lorenzo Pezzotti (lorenzo.pezzotti@cern.ch), Alberto Ribon (Supervisor)
-- (University of Pavia and INFN Pavia) Andrea Pareti, Gabriella Gaudio
+- (University of Pavia and INFN Pavia) Andrea Pareti (andrea.pareti@cern.ch), Gabriella Gaudio
 
 <!--Documentation and results-->
 ## Documentation and results
@@ -51,13 +52,74 @@ The project targets a standalone Geant4 simulation of the Dual-Readout tubes-bas
 - Dual-Readout Calorimetry Meeting 13/10/2021, **Status of 2021 Test Beam(s) SW** [![Website shields.io](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://indico.cern.ch/event/1086651/contributions/4569695/attachments/2327255/3964777/lopezzot_DR_SW_13_10_2021.pdf)
 - Dual-Readout Calorimetry Meeting 21/7/2021, **DREMTubes: A Geant4 simulation of the DR tubes prototype 2021 beam tests** [![Website shields.io](https://img.shields.io/website-up-down-green-red/http/shields.io.svg)](https://indico.cern.ch/event/1061304/contributions/4460441/attachments/2285253/3883980/DR_lopezzot_21_7_2021.pdf)
 
-<!--Available datasets and analyses-->
-### Available datasets and analyses
-| DREMTubes         | Reproduce data | Reproduce analysis | Comments     |
-| -------------     | ----------     | -----------        | -----------  |
-| v1.3 Dataset #3 <br /> tag 1.3_3 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 26/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run6.mac | No analysis | Run 6 same as Run 5 but with beam spot with 2.0 cm radius. |
-| v1.3 Dataset #2 <br /> tag 1.3_2 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 24/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run4.mac ./DREMTubes -m runcards/DREMTubes_run5.mac | No analysis | Run 4 same as Run 3 but with higher statistics, Run 5 same as Run 4 but without preshower. |
-| v1.3 Dataset #1 <br /> tag 1.3_1 (Geant4.10.07.p01, ATLHECTB v1.3, FTFP_BERT) <br /> Added on 17/11/2021 <br /> | ./DREMTubes -m runcards/DREMTubes_run3.mac | root -l DREMTubesanalysis_v1p3.C | Produced data and results shown in the presentation on 19/11/2021 by Lorenzo. Assuming root files from Geant4 are within run3/ folder as pointed in root macro. |
+
+<!-- Output variables: -->
+## Output variables
+
+Each run writes a ROOT file named `DREMTubesout_Run<runID>.root`. The output ntuple is named `DREMTubesout` and is filled once per event. Values are written in Geant4 internal units, so energies are in MeV and positions or distances are in mm unless stated otherwise. Signal variables are simulated detected photoelectron counts, abbreviated as p.e.
+
+### Detector-response parameters
+
+The parameters controlling the simulated detector response are not stored in the output ntuple. They are defined in the source code and can be changed before recompiling:
+
+| Parameter group | Location | Description |
+| --- | --- | --- |
+| Fast scintillation and Cherenkov signal smearing | `src/DREMTubesSignalHelper.cc` | The fast readout model converts deposited energy or optical photons to p.e. with Poisson smearing. The scintillation signal uses `SmearSSignalPMT()` and `SmearSSignalSiPM()`, while the Cherenkov signal uses `SmearCSignalPMT()` and `SmearCSignalSiPM()`. |
+| Light attenuation lengths | `include/DREMTubesSignalHelper.hh` | `fSAttenuationLength` and `fCAttenuationLength` set the scintillation and Cherenkov attenuation lengths used by `AttenuateSSignal()` and `AttenuateCSignal()`. |
+| Birks correction in the fast signal | `src/DREMTubesSignalHelper.cc` | `ApplyBirks()` applies the Birks correction before scintillation smearing in the fast signal model. |
+| Material and optical properties | `src/DREMTubesDetectorConstruction.cc` | Refractive indices and optical surfaces are used by Geant4 optical photon processes, in particular for Cherenkov photon production/transport and boundary handling. The scintillation yield, emission spectrum, material Birks constant, and SiPM optical-surface efficiency/reflectivity are defined there, but they do not set the fast readout p.e. variables written to the ntuple; those are controlled by `DREMTubesSignalHelper`. Full optical propagation for scintillation is not supported in this version. |
+
+### Scalar event variables
+
+| Variable | Units | Description |
+| --- | --- | --- |
+| `EnergyScin` | MeV | Total energy deposited in scintillating fibers by ionizing charged particles with non-zero step length. It is accumulated step-by-step in scintillating fiber volumes before converting the signal to p.e. |
+| `EnergyCher` | MeV | Total energy deposited in Cherenkov fiber volumes. It is accumulated step-by-step in Cherenkov fiber volumes. |
+| `NofPMTCherDet` | p.e. | Total Cherenkov signal detected in PMT-readout towers. It is the event sum of all entries in `VecCPMT`. |
+| `NofPMTScinDet` | p.e. | Total scintillation signal detected in PMT-readout towers. It is the event sum of all entries in `VecSPMT`. |
+| `EnergyTot` | MeV | Total visible energy deposited in the detector, excluding the world volume, preshower volumes, leakage counters, and truth-leakage absorber volumes. Note that invisible energy is not included. |
+| `PrimaryParticleEnergy` | MeV | Kinetic energy of the primary particle, saved from the primary track at its first step. |
+| `PrimaryPDGID` | dimensionless | PDG particle ID of the primary particle. |
+| `EscapedEnergyl` | MeV | Sum of kinetic energies of tracks entering the lateral truth-leakage absorber volume `leakageabsorberl`; the track is killed after being counted. |
+| `EscapedEnergyd` | MeV | Sum of kinetic energies of tracks entering the longitudinal/downstream truth-leakage absorber volume `leakageabsorberd`; the track is killed after being counted. |
+| `PSEnergy` | MeV | Total energy deposited in the preshower scintillator and lead volumes (if included in the simulation inside include/DREMTubesGeoPar.hh). |
+| `PrimaryX` | mm | Primary-particle x position saved from the primary track at its first step. |
+| `PrimaryY` | mm | Primary-particle y position saved from the primary track at its first step. |
+| `NofSiPMScinDet` | p.e. | Total scintillation signal detected in SiPM-readout fibers. It is the event sum of all entries in `VectorSignals`. |
+| `NofSiPMCherDet` | p.e. | Total Cherenkov signal detected in SiPM-readout fibers. It is the event sum of all entries in `VectorSignalsCher`. |
+
+### Vector event variables
+
+The vector lengths depend on the geometry selected in `include/DREMTubesGeoPar.hh`. The parameters used by the output vectors are:
+
+| Geometry parameter | Description |
+| --- | --- |
+| `NofmodulesX` | Number of module slots in the x direction of the calorimeter module grid. |
+| `NofmodulesY` | Number of module slots in the y direction of the calorimeter module grid. |
+| `modflag` | Map from grid slot to active tower ID. The array has `NofmodulesX*NofmodulesY` entries; values below zero leave a slot empty, while non-negative values are used as module copy numbers and tower IDs. |
+| `NoModulesActive` | Number of active towers/modules in the selected geometry. This sets the length of tower-level vectors such as `VecTowerE`, `VecSPMT`, and `VecCPMT`. |
+| `NoModulesSiPM` | Number of active modules read out with SiPMs. This sets the module factor in the SiPM fiber-vector length. |
+| `SiPMMod` | List of tower IDs that are read out with SiPMs. The position of a tower ID in this list is used as `SiPMTower` when indexing `VectorSignals` and `VectorSignalsCher`. Towers not listed here are treated as PMT-readout towers for `VecSPMT` and `VecCPMT`. |
+| `NofFiberscolumn` | Number of fiber/tube columns in a module. |
+| `NofFibersrow` | Number of fiber/tube rows in a module. Even rows are scintillating fibers and odd rows are Cherenkov fibers in the current placement logic. |
+| `NoFibersTower` | Number of scintillating or Cherenkov fibers of one type in a module, defined as `NofFiberscolumn*NofFibersrow/2`. This sets the number of SiPM channels per SiPM-readout module for each signal type. |
+| `NofLeakCounterLayers` | Number of leakage-counter layers on each lateral side. The leakage-counter vector length is `4*NofLeakCounterLayers+1`, including the downstream tail-catcher counter. |
+| `PreShowerIn` | Enables or disables construction of the preshower volumes. If disabled, `PSEnergy` remains zero. |
+| `LeakageCounterIn` | Enables or disables construction of the `leakbox` leakage counters. If disabled, `VecLeakCounter` is still created but remains zero. |
+| `TruthLeakageIn` | Enables or disables the truth-leakage absorber volumes used by `EscapedEnergyl` and `EscapedEnergyd`. If disabled, those variables remain zero. |
+| `moduleZ` | Longitudinal length of each calorimeter module and of the fibers inside it. |
+| `irot` | Selects the orientation used when placing the module grid; it swaps the module x/y footprint used for calorimeter sizing and module placement. |
+
+| Variable | Length | Units | Description |
+| --- | ---: | --- | --- |
+| `VectorSignals` | `NoModulesSiPM*NoFibersTower` | p.e. | Scintillation signal per SiPM-readout fiber. For each ionizing charged-particle step in a scintillating fiber, the deposited energy is Birks-corrected, converted to p.e. using a Poissonian smearing term, attenuated with scintillation attenuation length, and added at index `SiPMTower*NoFibersTower + SiPMID`. |
+| `VectorSignalsCher` | `NoModulesSiPM*NoFibersTower` | p.e. | Cherenkov signal per SiPM-readout fiber. For optical photons in Cherenkov fibers undergoing total internal reflection, the signal is sampled with a Poissonian smearing term, attenuated with Cherenkov attenuation length, and added at index `SiPMTower*NoFibersTower + SiPMID`. |
+| `VecTowerE` | `NoModulesActive` | MeV | Energy deposited in the fiber volumes of each active tower. It includes steps in scintillating and Cherenkov fiber cladding, core, and absorber volumes, indexed by tower ID. |
+| `VecSPMT` | `NoModulesActive` | p.e. | Scintillation signal per PMT-readout tower. It uses the same Birks correction, Poisson smearing, and attenuation as `VectorSignals`, but is filled only for towers that are not mapped to SiPM readout. |
+| `VecCPMT` | `NoModulesActive` | p.e. | Cherenkov signal per PMT-readout tower. It uses the same Poisson smearing and attenuation as `VectorSignalsCher`, but is filled only for towers that are not mapped to SiPM readout. |
+| `VecLeakCounter` | `4*NofLeakCounterLayers+1` | MeV | Energy deposited in leakage-counter `leakbox` volumes, indexed by leakage-counter copy number. For each layer, entries are ordered from the upper counter and then clockwise around the calorimeter: up, right, down, left. The first `4*NofLeakCounterLayers` entries correspond to the lateral counters, grouped by layer, and the final entry corresponds to the downstream tail catcher. |
+
+
 
 <!--How to:-->
 ## How to
