@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <algorithm>
 #include "G4Threading.hh"
+#include "G4ApplicationState.hh"
 #include "G4Material.hh"
 #include "G4NistManager.hh"
 #include "G4Box.hh"
@@ -79,9 +80,13 @@ DREMTubesGeoMessenger::DREMTubesGeoMessenger(DREMTubesDetectorConstruction* DetC
     fFiberMapcmd = new G4UIcmdWithAString("/tbgeo/fibermap", this);
     fFiberMapcmd->SetParameterName("path",/*omittable=*/false);
     fFiberMapcmd->SetGuidance("Write per-fiber geometry map (one row per SiPM fiber) to the given CSV path");
+    // The map is written during geometry construction (/run/initialize), so the
+    // path must be set beforehand: only allow the command in the PreInit state.
+    fFiberMapcmd->AvailableForStates(G4State_PreInit);
     fTowerMapcmd = new G4UIcmdWithAString("/tbgeo/towermap", this);
     fTowerMapcmd->SetParameterName("path",/*omittable=*/false);
     fTowerMapcmd->SetGuidance("Write per-tower geometry map (one row per tower) to the given CSV path");
+    fTowerMapcmd->AvailableForStates(G4State_PreInit);
 }
 
 
