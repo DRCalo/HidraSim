@@ -10,14 +10,13 @@ CSV column.
 
 Examples
 --------
-    python plot_fibers.py fibers.csv
-    python plot_fibers.py fibers.csv --color fiber_type
-    python plot_fibers.py fibers.csv --color output_index --cmap viridis
-    python plot_fibers.py fibers.csv --label copynumber -o fibers.png
+    python analysis/plot_fibers.py fibers.csv
+    python analysis/plot_fibers.py fibers.csv --color fiber_type
+    python analysis/plot_fibers.py fibers.csv --color output_index --cmap viridis
+    python analysis/plot_fibers.py fibers.csv --label copynumber -o fibers.png
 """
 import argparse
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection

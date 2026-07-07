@@ -10,13 +10,12 @@ CSV column.
 
 Examples
 --------
-    python plot_towers.py towers.csv --label tower_id
-    python plot_towers.py towers.csv --color readout --label tower_id
-    python plot_towers.py towers.csv --color output_index_base --cmap plasma -o towers.png
+    python analysis/plot_towers.py towers.csv --label tower_id
+    python analysis/plot_towers.py towers.csv --color readout --label tower_id
+    python analysis/plot_towers.py towers.csv --color output_index_base --cmap plasma -o towers.png
 """
 import argparse
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
