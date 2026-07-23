@@ -177,6 +177,9 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     //a = 65.38*g/mole;
     //G4Element* elZn = new G4Element("Zinc", symbol="Zn", z=30., a); //Zinc
     auto elZn = nistManager->FindOrBuildElement(30, true);
+    auto elFe = nistManager->FindOrBuildElement(26, true);
+    auto elCr = nistManager->FindOrBuildElement(24, true);
+    auto elNi = nistManager->FindOrBuildElement(28, true);
 
     //Materials 
     //
@@ -215,6 +218,12 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     CuZn37->AddElement(elCu, 0.7);
     CuZn37->AddElement(elZn, 0.3);
 
+    // 304 stainless steel 
+    auto Steel304 = new G4Material("Steel304", 7.93*g/cm3, 3);
+    Steel304->AddElement(elFe, 0.68);
+    Steel304->AddElement(elCr, 0.20);
+    Steel304->AddElement(elNi, 0.12);
+
     // Assign material to the calorimeter volumes
     //
     G4Material* defaultMaterial = nistManager->FindOrBuildMaterial("G4_AIR");
@@ -222,7 +231,8 @@ G4VPhysicalVolume* DREMTubesDetectorConstruction::DefineVolumes() {
     G4Material* SiMaterial = nistManager->FindOrBuildMaterial("G4_Si");
     G4Material* LeadMaterial = nistManager->FindOrBuildMaterial("G4_Pb");
     G4Material* PSScinMaterial = nistManager->FindOrBuildMaterial("G4_POLYSTYRENE");
-    G4Material* absorberMaterial = G4Material::GetMaterial("Brass");
+    //G4Material* absorberMaterial = G4Material::GetMaterial("Brass");
+    G4Material* absorberMaterial = G4Material::GetMaterial("Steel304");
     G4Material* ScinMaterial = G4Material::GetMaterial("Polystyrene");
     G4Material* CherMaterial = G4Material::GetMaterial("PMMA");
     G4Material* GlassMaterial = G4Material::GetMaterial("Glass");
