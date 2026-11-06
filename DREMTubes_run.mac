@@ -22,9 +22,13 @@
 /gps/energy 20 GeV
 /gps/direction 0 0 1
 /gps/position 0 0 -350 cm
+# Beam spot: uniform 4x4 cm^2 square, matching the area covered by the
+# AND of the trigger scintillators at the test beam (the beam itself is
+# much wider, but only particles inside this area are recorded)
 /gps/pos/type Plane
-/gps/pos/shape Circle
-/gps/pos/radius 1 cm
+/gps/pos/shape Square
+/gps/pos/halfx 2 cm
+/gps/pos/halfy 2 cm
 /random/setSeeds 1.2 2.5
 #
 /run/beamOn 100
