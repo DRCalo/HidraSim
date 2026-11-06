@@ -22,6 +22,7 @@
 /gps/energy 20 GeV
 /gps/direction 0 0 1
 /gps/position 0 0 -350 cm
+/gps/pos/type Plane
 /gps/pos/shape Circle
 /gps/pos/radius 1 cm
 /random/setSeeds 1.2 2.5
