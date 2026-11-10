@@ -23,11 +23,14 @@ class DREMTubesSignalHelper {
         static DREMTubesSignalHelper* instance;
 
 		const G4double fk_B = 0.126; //Birks constant
-		const G4double fSAttenuationLength = 367.0*CLHEP::cm; // from TB24 data
-		const G4double fCAttenuationLength = 380.9*CLHEP::cm; // from TB24 data
 		//const G4double fSAttenuationLength = 191.6*CLHEP::cm; // from TB23 data
 		//const G4double fCAttenuationLength = 388.9*CLHEP::cm; // from TB23 data
 
+		const G4double fSAttenuationLength = 367.0*CLHEP::cm; // from TB24 data
+		const G4double fCAttenuationLength = 380.9*CLHEP::cm; // from TB24 data
+
+		//const G4double fSAttenuationLength = 650.0*CLHEP::cm; // -> TB25 early measurements
+		//const G4double fCAttenuationLength = 900.0*CLHEP::cm; // -> Set reasonably large, to be studied!
 
 	//Private constructor (singleton)
         //

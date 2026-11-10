@@ -110,6 +110,7 @@ The vector lengths depend on the geometry selected in `include/DREMTubesGeoPar.h
 | `moduleZ` | Longitudinal length of each calorimeter module and of the fibers inside it. |
 | `irot` | Selects the orientation used when placing the module grid; it swaps the module x/y footprint used for calorimeter sizing and module placement. |
 
+
 | Variable | Length | Units | Description |
 | --- | ---: | --- | --- |
 | `VectorSignals` | `NoModulesSiPM*NoFibersTower` | p.e. | Scintillation signal per SiPM-readout fiber. For each ionizing charged-particle step in a scintillating fiber, the deposited energy is Birks-corrected, converted to p.e. using a Poissonian smearing term, attenuated with scintillation attenuation length, and added at index `SiPMTower*NoFibersTower + SiPMID`. |
@@ -118,6 +119,22 @@ The vector lengths depend on the geometry selected in `include/DREMTubesGeoPar.h
 | `VecSPMT` | `NoModulesActive` | p.e. | Scintillation signal per PMT-readout tower. It uses the same Birks correction, Poisson smearing, and attenuation as `VectorSignals`, but is filled only for towers that are not mapped to SiPM readout. |
 | `VecCPMT` | `NoModulesActive` | p.e. | Cherenkov signal per PMT-readout tower. It uses the same Poisson smearing and attenuation as `VectorSignalsCher`, but is filled only for towers that are not mapped to SiPM readout. |
 | `VecLeakCounter` | `4*NofLeakCounterLayers+1` | MeV | Energy deposited in leakage-counter `leakbox` volumes, indexed by leakage-counter copy number. For each layer, entries are ordered from the upper counter and then clockwise around the calorimeter: up, right, down, left. The first `4*NofLeakCounterLayers` entries correspond to the lateral counters, grouped by layer, and the final entry corresponds to the downstream tail catcher. |
+
+### Sensitive detector variables
+The following variables, filled within CalorimeterSD, are sparsified and are only filled if ionising particles or optical photons are collected inside the cell. The size of these branches vary for each event. 
+In the binned variables, bin 0 represents underflow and bin N+1 is overflow (mostly very late signals).
+
+| Variable | Description |
+| --- | --- |
+| `DREMTScin.TowerID` | Number of the module, read from `include/DREMTubesGeoPar.hh`, in which the hit was located. |
+| `DREMTScin.CellID` | Number of the fibre inside each module (0 - `NofFiberscolumn*NofFibersrow/2`-1) containing the hit | 
+| `DREMTScin.ProductionTimeBin` | Time bin in the event at which the hit was produced (Binning defined in `include/DREMTubesGeoPar.hh`)   |
+| `DREMTScin.ArrivalTimeBin` | Estimated time of arrival bin of the signal (S or C) at the end of the corresponding fibre (binning defined in `include/DREMTubesGeoPar.hh`) |
+| `DREMScin.DistanceBin` | Distance bin of hit from the readout (binning defined in `include/DREMTubesGeoPar.hh` ) |
+| `DREMTScin.energy` | Signal content of scintillation fibers hit (saturated energy deposit) |
+N.B. DREMTCher variables have the same physical meaning of DREMTScin. DREMTCher.energy is actually filled with the number of optical photons that satisfy total internal reflection in the corresponding bin (photons are then killed after being counted).
+N.B.B. Estimated scintillation arrival time currently only estimates distance of hit from SiPMs and average drift time as vS = c/n, and adds exponential decay time. Cherenkov time also considers photon direction angle wrt to fibre to compute actual drift time.
+
 
 
 
