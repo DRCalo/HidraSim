@@ -39,6 +39,10 @@ class DREMTubesEventAction : public G4UserEventAction {
         void SavePrimaryXY(G4double x, G4double y);
         void SaveAbsorberMaterial(G4String AbsorberMaterialName);
         void SavePrimaryEnergy(G4double primaryparticleenergy);
+        void SavePrimaryCalorimeterEntryTime(G4double time);
+        G4bool HasPrimaryCalorimeterEntryTime() const {
+            return HasPrimaryCalorimeterEntry;
+        }
         //void AddEscapedEnergy(G4double escapedenergy);
         void AddEscapedEnergyl(G4double escapedenergy);
         void AddEscapedEnergyd(G4double escapedenergy);       
@@ -50,8 +54,20 @@ class DREMTubesEventAction : public G4UserEventAction {
         std::vector<G4double>& GetVectorSignalsCher() {return VectorSignalsCher;}
 	std::vector<G4double>& GetVecTowerE() {return VecTowerE;}
 	std::vector<G4double>& GetVecSPMT() {return VecSPMT;}
-	std::vector<G4double>& GetVecCPMT() {return VecCPMT;}
-    std::vector<G4double>& GetVecLeakCounter() {return VecLeakCounter;}
+        std::vector<G4double>& GetVecCPMT() {return VecCPMT;}
+        std::vector<G4double>& GetVecLeakCounter() {return VecLeakCounter;}
+        std::vector<G4int>& GetCherenkovTowerIDs() {return CherenkovTowerIDs;}
+        std::vector<G4int>& GetCherenkovFiberIDs() {return CherenkovFiberIDs;}
+        std::vector<G4int>& GetCherenkovProductionTimeBins() {return CherenkovProductionTimeBins;}
+        std::vector<G4int>& GetCherenkovTimeBins() {return CherenkovTimeBins;}
+        std::vector<G4int>& GetCherenkovDistanceBins() {return CherenkovDistanceBins;}
+        std::vector<G4int>& GetCherenkovPhotonCounts() {return CherenkovPhotonCounts;}
+        std::vector<G4int>& GetScintillationTowerIDs() {return ScintillationTowerIDs;}
+        std::vector<G4int>& GetScintillationFiberIDs() {return ScintillationFiberIDs;}
+        std::vector<G4int>& GetScintillationProductionTimeBins() {return ScintillationProductionTimeBins;}
+        std::vector<G4int>& GetScintillationTimeBins() {return ScintillationTimeBins;}
+        std::vector<G4int>& GetScintillationDistanceBins() {return ScintillationDistanceBins;}
+        std::vector<G4double>& GetScintillationVisibleEnergies() {return ScintillationVisibleEnergies;}
 
         //Fill vector of scintillating fibers with energy deposition
         //
@@ -74,6 +90,8 @@ class DREMTubesEventAction : public G4UserEventAction {
     //    
 
     private:
+        void StoreCalorimeterHits(const G4Event* event);
+
         G4double  EnergyScin; //Energy in scintillating fibers
         G4double  EnergyCher; //Energy in Cherenkov fibers
         G4int     NofCherDet; //Number of Cherenkov p.e. detected 
@@ -83,6 +101,9 @@ class DREMTubesEventAction : public G4UserEventAction {
         G4double  PrimaryParticleEnergy; //Primary particle energy
         G4double  PrimaryX; //Primary particle energy
         G4double  PrimaryY; //Primary particle energy
+        G4int     EventID;
+        G4double  PrimaryCalorimeterEntryTime;
+        G4bool    HasPrimaryCalorimeterEntry;
         //G4double  EscapedEnergy; //Energy deposited in leakage absorber
         G4double  EscapedEnergyl; //Energy deposited in leakage lateral absorber
         G4double  EscapedEnergyd; //Energy deposited in leakage longitudinal absorber        
@@ -104,8 +125,22 @@ class DREMTubesEventAction : public G4UserEventAction {
 	//
     	std::vector<G4double> VecTowerE;
         //
-   	    std::vector<G4double> VecLeakCounter;
-        //        
+        std::vector<G4double> VecLeakCounter;
+        std::vector<G4int> CherenkovTowerIDs;
+        std::vector<G4int> CherenkovFiberIDs;
+        std::vector<G4int> CherenkovProductionTimeBins;
+        std::vector<G4int> CherenkovTimeBins;
+        std::vector<G4int> CherenkovDistanceBins;
+        std::vector<G4int> CherenkovPhotonCounts;
+        // Parallel sparse scintillation vectors. Each index identifies one
+        // production-time, arrival-time and longitudinal-distance cell.
+        std::vector<G4int> ScintillationTowerIDs;
+        std::vector<G4int> ScintillationFiberIDs;
+        std::vector<G4int> ScintillationProductionTimeBins;
+        std::vector<G4int> ScintillationTimeBins;
+        std::vector<G4int> ScintillationDistanceBins;
+        std::vector<G4double> ScintillationVisibleEnergies;
+        G4int CalorimeterHitsCollectionID{-1};
 
 };
 
@@ -131,6 +166,13 @@ inline void DREMTubesEventAction::SavePrimaryXY(G4double x, G4double y){
 
 inline void DREMTubesEventAction::SavePrimaryEnergy(G4double primaryparticleenergy){
     PrimaryParticleEnergy = primaryparticleenergy;
+}
+
+inline void DREMTubesEventAction::SavePrimaryCalorimeterEntryTime(G4double time) {
+    if (!HasPrimaryCalorimeterEntry) {
+        PrimaryCalorimeterEntryTime = time;
+        HasPrimaryCalorimeterEntry = true;
+    }
 }
 
 inline void DREMTubesEventAction::AddVectorScin(G4double de, G4int fiber) {

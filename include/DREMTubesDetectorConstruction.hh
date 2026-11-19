@@ -39,6 +39,7 @@ class DREMTubesDetectorConstruction : public G4VUserDetectorConstruction {
 
     public:
         virtual G4VPhysicalVolume* Construct();
+        void ConstructSDandField() override;
 
         G4LogicalVolume* constructscinfiber(double tolerance,
                                             G4double tuberadius,

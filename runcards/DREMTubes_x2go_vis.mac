@@ -1,0 +1,123 @@
+# Interactive calorimeter display for X2Go and other remote desktops.
+#
+# Launch DREMTubes with its Qt UI, then execute this macro once:
+#   ./DREMTubes -u Qt
+#   /control/execute DREMTubes_x2go_vis.mac
+#
+# TSG_QT_ZB is Geant4's CPU-only software Z-buffer viewer.  Unlike the OpenGL
+# viewers, it does not depend on GLX/OpenGL framebuffer transport through X2Go.
+# Mouse controls in this viewer are:
+#   left drag         rotate
+#   Shift-left drag   pan (the right mouse button is not used for panning)
+#   wheel             zoom
+# The Viewer menu also provides pan buttons in case X2Go does not forward the
+# Shift modifier while dragging.
+#
+#
+#| Particle | Colour |
+#|---|---|
+#| `gamma` | green |
+#| `e-` | red |
+#| `e+` | blue |
+#| `pi+`, `pi-` | magenta |
+#| `proton` | cyan |
+#| `neutron` | yellow |
+#| everything else, including `opticalphoton` | grey |
+
+
+/control/verbose 1
+/run/verbose 0
+/event/verbose 0
+/tracking/verbose 0
+
+# Match the calorimeter rotations used by the physics-run macro.
+/tbgeo/horizrot 2.5 deg
+/tbgeo/vertrot 2.5 deg
+
+/run/initialize
+
+# Make the module volumes almost invisible while retaining their outlines.
+/vis/geometry/set/colour moduleequipped 0 0.80 0.85 1.00 0.03
+
+# Suppress non-calorimeter envelopes that otherwise obscure the towers.  Apply
+# these before opening the viewer so no half-built scene is refreshed.
+/vis/geometry/set/visibility leakageabsorberl 0 false
+/vis/geometry/set/visibility leakageabsorberd 0 false
+/vis/geometry/set/visibility leakbox 0 false
+/vis/geometry/set/visibility Preshower -1 false
+/vis/geometry/set/visibility CalorimeterBoxLV 0 false
+/vis/geometry/set/visibility CalorimeterLV 0 false
+
+/vis/open TSG_QT_ZB 900x700
+/vis/viewer/set/autoRefresh false
+/vis/viewer/set/background 0.05 0.05 0.08
+/vis/viewer/set/defaultColour 0.80 0.85 1.00
+/vis/viewer/set/style wireframe
+/vis/viewer/set/auxiliaryEdge false
+/vis/viewer/set/lineSegmentsPerCircle 8
+/vis/viewer/set/culling global true
+/vis/viewer/set/culling invisible true
+
+# Draw from the real tracking world.  ToolsSG cannot safely mix the artificial
+# world made by /vis/drawLogicalVolume with trajectories from the tracking
+# world: a later refresh then aborts with "World mis-match".
+#
+# Depth 3 reaches World -> CalorimeterBox -> Calorimeter -> moduleequipped.
+# It therefore draws the tower envelopes without descending into their fibres.
+/vis/drawVolume ! ! 3
+
+# World-coordinate axes with independent lengths.  These do not inherit the
+# /tbgeo/ transform applied to the calorimeter.
+/vis/set/lineWidth 2
+/vis/set/colour red
+/vis/scene/add/arrow 0 0 0 50 0 0 cm
+/vis/set/textColour red
+/vis/scene/add/text 50 0 0 cm 14 4 0 X
+/vis/set/colour green
+/vis/scene/add/arrow 0 0 0 0 50 0 cm
+/vis/set/textColour green
+/vis/scene/add/text 0 50 0 cm 14 4 0 Y
+/vis/set/colour blue
+/vis/scene/add/arrow 0 0 0 0 0 200 cm
+/vis/set/textColour blue
+/vis/scene/add/text 0 0 200 cm 14 4 0 Z
+/vis/set/lineWidth 1
+/vis/set/colour white
+/vis/set/textColour blue
+
+# View the calorimeter front face from negative Z, looking towards positive Z.
+# Geant4 defines this direction from the target point towards the camera, so
+# theta = 180 deg places the camera on the negative-Z side.
+/vis/viewer/set/viewpointThetaPhi 180 0 deg
+/vis/viewer/set/targetPoint 0 0 0 m
+/vis/viewer/zoomTo 1
+
+# Display particles fired later from the Qt command field.
+/tracking/storeTrajectory 1
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByParticleID
+
+# Draw only gamma, electron and positron trajectories.  The attribute filter
+# is chained with the particle filter, so each accepted track must also have
+# an initial kinetic energy of at least 50 keV.
+/vis/filtering/trajectories/create/particleFilter
+#/vis/filtering/trajectories/particleFilter-0/add gamma
+/vis/filtering/trajectories/particleFilter-0/add e-
+/vis/filtering/trajectories/particleFilter-0/add e+
+/vis/filtering/trajectories/particleFilter-0/add pi-
+/vis/filtering/trajectories/particleFilter-0/add pi+
+/vis/filtering/trajectories/particleFilter-0/add mu-
+/vis/filtering/trajectories/particleFilter-0/add mu+
+/vis/filtering/trajectories/create/attributeFilter
+/vis/filtering/trajectories/attributeFilter-0/setAttribute IKE
+/vis/filtering/trajectories/attributeFilter-0/addInterval 500 keV 100 TeV
+
+/vis/scene/endOfEventAction refresh
+/vis/scene/endOfRunAction accumulate
+
+/vis/viewer/set/autoRefresh true
+/vis/enable
+/vis/viewer/select viewer-0
+/vis/viewer/rebuild
+/vis/viewer/flush
+/control/echo "TSG controls: left-drag rotates; Shift-left-drag pans; wheel zooms."

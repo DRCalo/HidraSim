@@ -2,6 +2,29 @@
 /* Select prototype geometry and ancillaries setup */
 /***************************************************/
 #include "G4SystemOfUnits.hh"
+#include "G4PhysicalConstants.hh"
+
+// Raw calorimeter-hit timing. Bins 1..N are inside the time window;
+// bin 0 and bin N+1 are the underflow and overflow bins.
+const G4double CalorimeterTimeStart = 0.0 * ns;
+const G4double CalorimeterTimeEnd = 100.0 * ns;
+const G4double CalorimeterTimeBinWidth = 0.1 * ns;
+const G4int NofCalorimeterTimeBins = 1000;
+
+// Distance from the photon-production point to the positive-z readout end.
+// As for time, bin 0 is underflow and bin N+1 is overflow.
+const G4double CalorimeterDistanceStart = 0.0 * mm;
+const G4double CalorimeterDistanceEnd = 2500.0 * mm;
+const G4double CalorimeterDistanceBinWidth = 10.0 * mm;
+const G4int NofCalorimeterDistanceBins = 250;
+
+// Fast scintillation timing model. Scintillation light is represented by
+// quenched visible energy, with an exponential emission delay and an effective
+// propagation velocity along the fibre axis.
+const G4double ScintillationDecayTime = 3.2 * ns; // taken from https://luxiumsolutions.com/sites/default/files/2021-11/Fiber-Product-Sheet.pdf for BCF12 fibers
+const G4double ScintillationRefractiveIndex = 1.59;
+const G4double ScintillationEffectiveVelocity =
+    c_light / ScintillationRefractiveIndex;
 // 
 // Ancillaries
 //
@@ -69,7 +92,7 @@ const G4bool TruthLeakageIn = true;
 
 
 
-
+/*
 // 70 modules -> TB25
 const G4int NofmodulesX = 5;
 const G4int NofmodulesY = 18;
@@ -100,9 +123,10 @@ const G4int NoModulesActive=70;
 const G4double moduleZ = (2500.)*mm;
 const G4bool irot=false;
 const G4int NoFibersTower=NofFiberscolumn*NofFibersrow/2;
+*/
 
 
-/*
+
 // 80 modules -> TB26 (HiDRa geometry, SiPMs placed in two towers)
 const G4int NofmodulesX = 5;
 const G4int NofmodulesY = 20;
@@ -134,7 +158,7 @@ const G4int NofFibersrow = 16;
 const G4int NoModulesActive=80;
 const G4double moduleZ = (2500.)*mm;
 const G4bool irot=false;
-const G4int NoFibersTower=NofFiberscolumn*NofFibersrow/2;*/
+const G4int NoFibersTower=NofFiberscolumn*NofFibersrow/2;
 
 
 
@@ -149,7 +173,7 @@ const G4int modflag[100]={-1, -1, 0, -1, -1,
                             -1,  1, 2, 3, -1, 
                             -1,  4, 5,  6, -1, 
                             -1, 7, 8,  9, -1,
-                            10, 1, 12, 13, 14, 
+                            10, 11, 12, 13, 14, 
                             15,  16, 17, 18, 19, 
                             20, 21, 22, 23, 24,
                             25, 26, 27, 28, 29,
@@ -174,5 +198,3 @@ const G4double moduleZ = (2500.)*mm;
 const G4bool irot=false;
 const G4int NoFibersTower=NofFiberscolumn*NofFibersrow/2;
 */
-
-
