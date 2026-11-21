@@ -1,6 +1,6 @@
 //**************************************************
-// \file DREMTubesRunAction.cc 
-// \brief: Implementation of DREMTubesRunAction class 
+// \file DREMTubesRunAction.cc
+// \brief: Implementation of DREMTubesRunAction class
 // \author: Lorenzo Pezzotti (CERN EP-SFT-sim) @lopezzot
 // \start date: 7 July 2021
 //**************************************************
@@ -27,11 +27,11 @@
 //
 DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     : G4UserRunAction(),
-      fEventAction( eventAction ){ 
-  
+      fEventAction( eventAction ){
+
     //print event number per each event (default, can be overwritten with macro)
     //
-    G4RunManager::GetRunManager()->SetPrintProgress(1);     
+    G4RunManager::GetRunManager()->SetPrintProgress(1);
 
     //Instantiate analysis manager
     //
@@ -46,20 +46,45 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     //Define ntuple structure
     //
     analysisManager->CreateNtuple("DREMTubesout", "DREMTubesoutput");
-    analysisManager->CreateNtupleDColumn("EnergyScin");                     //0
-    analysisManager->CreateNtupleDColumn("EnergyCher");                     //1
-    analysisManager->CreateNtupleDColumn("NofPMTCherDet");                  //2
-    analysisManager->CreateNtupleDColumn("NofPMTScinDet");                  //3
-    analysisManager->CreateNtupleDColumn("EnergyDepCalo");                  //4
-    analysisManager->CreateNtupleDColumn("PrimaryParticleEnergy");          //5
-    analysisManager->CreateNtupleIColumn("PrimaryPDGID");                   //6
-    analysisManager->CreateNtupleDColumn("EscapedEnergyl");                 //7
-    analysisManager->CreateNtupleDColumn("EscapedEnergyd");                 //8
-    analysisManager->CreateNtupleDColumn("PSEnergy");                       //9
-    analysisManager->CreateNtupleDColumn("PrimaryX");                       //10
-    analysisManager->CreateNtupleDColumn("PrimaryY");                       //11
-    analysisManager->CreateNtupleDColumn("NofSiPMScinDet");                 //12
-    analysisManager->CreateNtupleDColumn("NofSiPMCherDet");                 //13    
+
+    //Helpers: create a scalar column (addD = double, addI = int) and give its id
+    //to the EventAction, which fills the column by name.
+    //To add a column: one line here + the matching Fill line in EventAction.
+    //To remove it: delete both lines. The other columns are not affected.
+    //The order of the lines here is the order of the branches in the output.
+    //(if fEventAction is null the column is only created)
+    auto addD = [this, analysisManager](const G4String& name) {
+        const G4int id = analysisManager->CreateNtupleDColumn(name);
+        if (fEventAction) fEventAction->SetColumnId(name, id);
+    };
+    auto addI = [this, analysisManager](const G4String& name) {
+        const G4int id = analysisManager->CreateNtupleIColumn(name);
+        if (fEventAction) fEventAction->SetColumnId(name, id);
+    };
+
+    //Primary particle
+    addD("PrimaryParticleEnergy");
+    addI("PrimaryPDGID");
+    addD("PrimaryX");
+    addD("PrimaryY");
+
+    //Energy deposited (truth level)
+    addD("EnergyDepCalo");
+    addD("EnergyScin");
+    addD("EnergyCher");
+    addD("PSEnergy");
+
+    //Leakage energy (l = lateral, d = longitudinal)
+    addD("EscapedEnergyl");
+    addD("EscapedEnergyd");
+
+    //Photoelectrons detected (PMT and SiPM)
+    addD("NofPMTScinDet");
+    addD("NofPMTCherDet");
+    addD("NofSiPMScinDet");
+    addD("NofSiPMCherDet");
+
+    //Vector columns (filled automatically)
     analysisManager->CreateNtupleDColumn("VectorSignals", fEventAction->GetVectorSignals());
     analysisManager->CreateNtupleDColumn("VectorSignalsCher", fEventAction->GetVectorSignalsCher());
     analysisManager->CreateNtupleDColumn("VecTowerE", fEventAction->GetVecTowerE());
@@ -67,27 +92,27 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     analysisManager->CreateNtupleDColumn ("VecCPMT", fEventAction->GetVecCPMT());
     analysisManager->CreateNtupleDColumn ("VecLeakCounter", fEventAction->GetVecLeakCounter());
     analysisManager->FinishNtuple();
-      
+
 }
 
 //Define de-constructor
 //
 DREMTubesRunAction::~DREMTubesRunAction(){
-   
+
     //Delete only instance of G4AnalysisManager
     //
-    //delete G4AnalysisManager::Instance();  
+    //delete G4AnalysisManager::Instance();
 
 }
 
 //Define BeginOfRunAction() and EndOfRunAction() methods
 //
-void DREMTubesRunAction::BeginOfRunAction( const G4Run* Run )  { 
-    
+void DREMTubesRunAction::BeginOfRunAction( const G4Run* Run )  {
+
     //Save random seeds (optional)
     //
     //G4RunManager::GetRunManager()->SetRandomNumberStore( true );
-    
+
     //Open output file, one per Run
     //
     auto analysisManager = G4AnalysisManager::Instance();
@@ -98,7 +123,7 @@ void DREMTubesRunAction::BeginOfRunAction( const G4Run* Run )  {
 }
 
 void DREMTubesRunAction::EndOfRunAction( const G4Run* ) {
-  
+
     auto analysisManager = G4AnalysisManager::Instance();
 
     analysisManager->Write();
