@@ -47,12 +47,13 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     //
     analysisManager->CreateNtuple("DREMTubesout", "DREMTubesoutput");
 
-    //Helpers: create a scalar column (addD = double, addI = int) and give its id
-    //to the EventAction, which fills the column by name.
-    //To add a column: one line here + the matching Fill line in EventAction.
+    //Helpers to create the columns of the ntuple:
+    //  addD / addI: scalar column (double / int), filled by name in EventAction
+    //  addV: vector column, filled automatically from the EventAction vector
+    //To add a scalar column: one line here + the matching Fill line in EventAction.
     //To remove it: delete both lines. The other columns are not affected.
     //The order of the lines here is the order of the branches in the output.
-    //(if fEventAction is null the column is only created)
+    //(if fEventAction is null a scalar column is only created)
     auto addD = [this, analysisManager](const G4String& name) {
         const G4int id = analysisManager->CreateNtupleDColumn(name);
         if (fEventAction) fEventAction->SetColumnId(name, id);
@@ -60,6 +61,9 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     auto addI = [this, analysisManager](const G4String& name) {
         const G4int id = analysisManager->CreateNtupleIColumn(name);
         if (fEventAction) fEventAction->SetColumnId(name, id);
+    };
+    auto addV = [analysisManager](const G4String& name, std::vector<G4double>& vec) {
+        analysisManager->CreateNtupleDColumn(name, vec);
     };
 
     //Primary particle
@@ -85,12 +89,12 @@ DREMTubesRunAction::DREMTubesRunAction( DREMTubesEventAction* eventAction )
     addD("NofSiPMCherDet");
 
     //Vector columns (filled automatically)
-    analysisManager->CreateNtupleDColumn("VectorSignals", fEventAction->GetVectorSignals());
-    analysisManager->CreateNtupleDColumn("VectorSignalsCher", fEventAction->GetVectorSignalsCher());
-    analysisManager->CreateNtupleDColumn("VecTowerE", fEventAction->GetVecTowerE());
-    analysisManager->CreateNtupleDColumn("VecSPMT", fEventAction->GetVecSPMT());
-    analysisManager->CreateNtupleDColumn ("VecCPMT", fEventAction->GetVecCPMT());
-    analysisManager->CreateNtupleDColumn ("VecLeakCounter", fEventAction->GetVecLeakCounter());
+    addV("VectorSignals", fEventAction->GetVectorSignals());
+    addV("VectorSignalsCher", fEventAction->GetVectorSignalsCher());
+    addV("VecTowerE", fEventAction->GetVecTowerE());
+    addV("VecSPMT", fEventAction->GetVecSPMT());
+    addV("VecCPMT", fEventAction->GetVecCPMT());
+    addV("VecLeakCounter", fEventAction->GetVecLeakCounter());
     analysisManager->FinishNtuple();
 
 }
