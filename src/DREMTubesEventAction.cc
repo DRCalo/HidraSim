@@ -49,6 +49,7 @@ DREMTubesEventAction::DREMTubesEventAction()
     PSEnergy(0.),
     VectorSignals(0.),
     VectorSignalsCher(0.),
+    VecLeakCounter(0.),
     VecSPMT(0.),
     VecCPMT(0.),
     VecTowerE(0.) {
