@@ -17,10 +17,12 @@
 
 //Includers from C++
 //
+#include <map>
+#include <string>
 #include <vector>
 
 class DREMTubesEventAction : public G4UserEventAction {
-    
+
     public:
         //Constructor
         //
@@ -31,7 +33,7 @@ class DREMTubesEventAction : public G4UserEventAction {
 
         virtual void  BeginOfEventAction(const G4Event* event);
         virtual void    EndOfEventAction(const G4Event* event);
-    
+
         void AddScin(G4double de);//Add energy in scintillating fibers
         void AddCher(G4double de);//Add energy in Cherenkov fibers
         void Addenergy(G4double de);//Add energy depositedin calo
@@ -41,12 +43,12 @@ class DREMTubesEventAction : public G4UserEventAction {
         void SavePrimaryEnergy(G4double primaryparticleenergy);
         //void AddEscapedEnergy(G4double escapedenergy);
         void AddEscapedEnergyl(G4double escapedenergy);
-        void AddEscapedEnergyd(G4double escapedenergy);       
+        void AddEscapedEnergyd(G4double escapedenergy);
         void AddPSEnergy(G4double de);
 
         //Save vectors in ntuple
 	//
-        std::vector<G4double>& GetVectorSignals() {return VectorSignals;} 
+        std::vector<G4double>& GetVectorSignals() {return VectorSignals;}
         std::vector<G4double>& GetVectorSignalsCher() {return VectorSignalsCher;}
 	std::vector<G4double>& GetVecTowerE() {return VecTowerE;}
 	std::vector<G4double>& GetVecSPMT() {return VecSPMT;}
@@ -55,7 +57,7 @@ class DREMTubesEventAction : public G4UserEventAction {
 
         //Fill vector of scintillating fibers with energy deposition
         //
-        void AddVectorScin(G4double de, G4int fiber); 
+        void AddVectorScin(G4double de, G4int fiber);
         //Fill vector of cherenkov fibers with chernekov photoelectrons
         //
         void AddVectorCher(G4int fiber, G4int n);
@@ -71,12 +73,19 @@ class DREMTubesEventAction : public G4UserEventAction {
     //
     //  Fill leakage counter with deposited energy
     void AddVecLeakCounter(G4int LCID, G4double de);
-    //    
+
+    // Scalar ntuple columns are filled by name, not by number:
+    // RunAction registers the id of each column (SetColumnId),
+    // EventAction looks it up (ColumnId) when it fills the ntuple.
+    // Adding or removing a column never changes the ids of the others.
+    void SetColumnId(const std::string& name, G4int id);
+    G4int ColumnId(const std::string& name) const;
+    //
 
     private:
         G4double  EnergyScin; //Energy in scintillating fibers
         G4double  EnergyCher; //Energy in Cherenkov fibers
-        G4int     NofCherDet; //Number of Cherenkov p.e. detected 
+        G4int     NofCherDet; //Number of Cherenkov p.e. detected
     	G4int     NofScinDet; //Number of Scintillating p.e. detected
         G4double  EnergyDepCalo;  //Energy deposited in the calorimeter (tubes + air of its structure; no invisible energy)
         G4int     PrimaryPDGID; //PDGID of primary particle
@@ -85,7 +94,7 @@ class DREMTubesEventAction : public G4UserEventAction {
         G4double  PrimaryY; //Primary particle energy
         //G4double  EscapedEnergy; //Energy deposited in leakage absorber
         G4double  EscapedEnergyl; //Energy deposited in leakage lateral absorber
-        G4double  EscapedEnergyd; //Energy deposited in leakage longitudinal absorber        
+        G4double  EscapedEnergyd; //Energy deposited in leakage longitudinal absorber
 	G4double  PSEnergy;
 
         //Vector of SiPMs filled with scintillating signals
@@ -105,7 +114,9 @@ class DREMTubesEventAction : public G4UserEventAction {
     	std::vector<G4double> VecTowerE;
         //
    	    std::vector<G4double> VecLeakCounter;
-        //        
+
+        std::map<std::string, G4int> fColumnId; //Ids of the scalar ntuple columns, by name
+        //
 
 };
 

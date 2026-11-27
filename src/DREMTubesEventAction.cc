@@ -1,6 +1,6 @@
 //**************************************************
 // \file DREMTubesEventAction.cc
-// \brief: Implementation of DREMTubesEventAction 
+// \brief: Implementation of DREMTubesEventAction
 //         class
 // \author: Lorenzo Pezzotti (CERN EP-SFT-sim)
 //          @lopezzot
@@ -20,12 +20,14 @@
 #include "G4Event.hh"
 #include "G4UnitsTable.hh"
 #include "Randomize.hh"
+#include "G4Exception.hh"
 
 //Includers from C++
 //
 #include <iomanip>
 #include <vector>
 #include <numeric>
+#include <string>
 
 
 //Define constructor
@@ -43,7 +45,7 @@ DREMTubesEventAction::DREMTubesEventAction()
     PrimaryParticleEnergy(0.),
     //EscapedEnergy(0.),
     EscapedEnergyl(0.),
-    EscapedEnergyd(0.),    
+    EscapedEnergyd(0.),
     PSEnergy(0.),
     VectorSignals(0.),
     VectorSignalsCher(0.),
@@ -56,10 +58,26 @@ DREMTubesEventAction::DREMTubesEventAction()
 //
 DREMTubesEventAction::~DREMTubesEventAction() {}
 
+//Define SetColumnId() and ColumnId() methods
+//
+void DREMTubesEventAction::SetColumnId(const std::string& name, G4int id) {
+    fColumnId[name] = id;
+}
+
+G4int DREMTubesEventAction::ColumnId(const std::string& name) const {
+    auto it = fColumnId.find(name);
+    if (it != fColumnId.end()) return it->second;
+    std::string msg = "Ntuple column '" + name + "' is filled in EventAction "
+                      "but was never created in RunAction (check the column name).";
+    G4Exception("DREMTubesEventAction::ColumnId", "NtupleColumnNotFound",
+                FatalException, msg.c_str());
+    return -1; //never reached: FatalException stops the program
+}
+
 //Define BeginOfEventAction() and EndOfEventAction() methods
 //
-void DREMTubesEventAction::BeginOfEventAction(const G4Event*) {  
-    
+void DREMTubesEventAction::BeginOfEventAction(const G4Event*) {
+
     //Initialize data memebers at begin of each event
     //
     EnergyScin = 0.;
@@ -73,7 +91,7 @@ void DREMTubesEventAction::BeginOfEventAction(const G4Event*) {
     PrimaryParticleEnergy = 0.;
     //EscapedEnergy = 0.;
     EscapedEnergyl = 0.;
-    EscapedEnergyd = 0.;    
+    EscapedEnergyd = 0.;
     PSEnergy = 0.;
 
     VectorSignals.clear();
@@ -94,7 +112,7 @@ void DREMTubesEventAction::BeginOfEventAction(const G4Event*) {
 }
 
 void DREMTubesEventAction::EndOfEventAction(const G4Event* ) {
- 
+
     G4AnalysisManager* analysisManager = G4AnalysisManager::Instance();
 
     //Add all p.e. in Scin and Cher fibers before calibration
@@ -111,21 +129,30 @@ void DREMTubesEventAction::EndOfEventAction(const G4Event* ) {
 
     //Fill ntuple event by event
     //entries with vectors are automatically filled
+    //scalar columns are filled by name (same names as in RunAction),
+    //so the order of the lines below does not matter
     //
-    analysisManager->FillNtupleDColumn(0, EnergyScin);
-    analysisManager->FillNtupleDColumn(1, EnergyCher);
-    analysisManager->FillNtupleDColumn(2, NofCherDet);
-    analysisManager->FillNtupleDColumn(3, NofScinDet);
-    analysisManager->FillNtupleDColumn(4, EnergyDepCalo);
-    analysisManager->FillNtupleDColumn(5, PrimaryParticleEnergy);
-    analysisManager->FillNtupleIColumn(6, PrimaryPDGID);
-    analysisManager->FillNtupleDColumn(7, EscapedEnergyl);
-    analysisManager->FillNtupleDColumn(8, EscapedEnergyd);
-    analysisManager->FillNtupleDColumn(9, PSEnergy);
-    analysisManager->FillNtupleDColumn(10, PrimaryX);
-    analysisManager->FillNtupleDColumn(11,PrimaryY);
-    analysisManager->FillNtupleDColumn(12,NofPheSciSiPM);
-    analysisManager->FillNtupleDColumn(13,NofPheCerSiPM);    
+    //Primary particle
+    analysisManager->FillNtupleDColumn(ColumnId("PrimaryParticleEnergy"), PrimaryParticleEnergy);
+    analysisManager->FillNtupleIColumn(ColumnId("PrimaryPDGID"), PrimaryPDGID);
+    analysisManager->FillNtupleDColumn(ColumnId("PrimaryX"), PrimaryX);
+    analysisManager->FillNtupleDColumn(ColumnId("PrimaryY"), PrimaryY);
+
+    //Energy deposited (truth level)
+    analysisManager->FillNtupleDColumn(ColumnId("EnergyDepCalo"), EnergyDepCalo);
+    analysisManager->FillNtupleDColumn(ColumnId("EnergyScin"), EnergyScin);
+    analysisManager->FillNtupleDColumn(ColumnId("EnergyCher"), EnergyCher);
+    analysisManager->FillNtupleDColumn(ColumnId("PSEnergy"), PSEnergy);
+
+    //Leakage energy (l = lateral, d = longitudinal)
+    analysisManager->FillNtupleDColumn(ColumnId("EscapedEnergyl"), EscapedEnergyl);
+    analysisManager->FillNtupleDColumn(ColumnId("EscapedEnergyd"), EscapedEnergyd);
+
+    //Photoelectrons detected (PMT and SiPM)
+    analysisManager->FillNtupleDColumn(ColumnId("NofPMTScinDet"), NofScinDet);
+    analysisManager->FillNtupleDColumn(ColumnId("NofPMTCherDet"), NofCherDet);
+    analysisManager->FillNtupleDColumn(ColumnId("NofSiPMScinDet"), NofPheSciSiPM);
+    analysisManager->FillNtupleDColumn(ColumnId("NofSiPMCherDet"), NofPheCerSiPM);
     analysisManager->AddNtupleRow();
     //Vector entries in ntuple are automatically filled
 
